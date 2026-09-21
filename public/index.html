@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"/>
 <meta name="theme-color" content="#0d0d0d"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -15,876 +15,24 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/tomorrow-night-eighties.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<link rel="stylesheet" href="/css/style.css?v=5">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/loadmode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/meta.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
-<style>
-/* ── Reset & base ──────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:        #0d0d0d;
-  --surface:   #141414;
-  --surface2:  #1a1a1a;
-  --border:    #2a2a2a;
-  --border2:   #333;
-  --text:      #e2e2e2;
-  --muted:     #555;
-  --muted2:    #777;
-  --green:     #3fb950;
-  --red:       #f85149;
-  --yellow:    #d29922;
-  --blue:      #58a6ff;
-  --purple:    #bc8cff;
-  --cyan:      #39c5cf;
-  --orange:    #f0883e;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  min-height: 100vh;
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.5;
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-html {
-  overscroll-behavior: none;
-  height: 100%;
-}
-
-/* ── Scrollbar ─────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted2); }
-
-/* ── Top bar ───────────────────────────────────────────── */
-#topbar {
-  border-bottom: 1px solid var(--border);
-  padding: 0 16px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--surface);
-  flex-shrink: 0;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.5px;
-}
-
-.logo-icon {
-  width: 20px; height: 20px;
-  color: var(--green);
-  flex-shrink: 0;
-}
-
-.topbar-sep { color: var(--muted); }
-
-#repoMeta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.repo-name {
-  color: var(--blue);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.branch-tag {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(88,166,255,0.08);
-  border: 1px solid rgba(88,166,255,0.18);
-  color: var(--blue);
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 3px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.commit-preview {
-  color: var(--muted2);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.topbar-btn {
-  background: none;
-  border: 1px solid var(--border2);
-  color: var(--muted2);
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-  padding: 4px 10px;
-  cursor: pointer;
-  border-radius: 3px;
-  transition: color 0.15s, border-color 0.15s;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.topbar-btn:hover { color: var(--text); border-color: var(--muted2); }
-
-/* ── Connect screen ────────────────────────────────────── */
-#connectScreen {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.connect-wrap {
-  width: 100%;
-  max-width: 500px;
-}
-
-.connect-header {
-  margin-bottom: 24px;
-}
-
-.connect-header .prompt-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.ps1 { color: var(--green); font-weight: 700; }
-.ps1-path { color: var(--blue); }
-.ps1-cmd { color: var(--text); }
-.cursor-blink {
-  display: inline-block;
-  width: 8px; height: 14px;
-  background: var(--text);
-  animation: blink 1s step-end infinite;
-  vertical-align: middle;
-  margin-left: 2px;
-}
-@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-
-.connect-header p {
-  color: var(--muted2);
-  font-size: 12px;
-  padding-left: 0;
-  margin-top: 10px;
-}
-
-.section-head {
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  padding: 0 0 8px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 10px;
-}
-
-.project-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 240px;
-  overflow-y: auto;
-  margin-bottom: 20px;
-}
-
-.project-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  cursor: pointer;
-  border-radius: 3px;
-  transition: background 0.1s;
-  border: 1px solid transparent;
-}
-.project-item:hover { background: var(--surface2); border-color: var(--border); }
-.project-item:active { background: #1f1f1f; }
-
-.proj-sigil { color: var(--green); width: 14px; flex-shrink: 0; }
-.proj-name { color: var(--text); font-weight: 600; font-size: 13px; }
-.proj-path { color: var(--muted2); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.proj-arrow { color: var(--muted); font-size: 12px; }
-
-.divider-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 11px;
-  margin: 14px 0;
-}
-.divider-line::before, .divider-line::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.input-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.cli-input {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  padding: 9px 12px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.cli-input:focus { border-color: var(--blue); }
-.cli-input::placeholder { color: var(--muted); }
-
-.cli-btn {
-  background: var(--green);
-  color: #000;
-  border: none;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 9px 14px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: filter 0.15s;
-  white-space: nowrap;
-}
-.cli-btn:hover { filter: brightness(1.12); }
-.cli-btn:active { filter: brightness(0.9); }
-.cli-btn.secondary {
-  background: none;
-  border: 1px solid var(--border2);
-  color: var(--muted2);
-}
-.cli-btn.secondary:hover { color: var(--text); border-color: var(--muted2); }
-
-/* ── Main layout (3-panel) ─────────────────────────────── */
-#mainLayout {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* ── Left: file tree ───────────────────────────────────── */
-#filePanel {
-  width: 260px;
-  min-width: 180px;
-  max-width: 360px;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.panel-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 12px;
-  font-size: 11px;
-  color: var(--muted2);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-
-.panel-tab {
-  flex: 1;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  padding: 9px 8px 7px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  letter-spacing: 0.5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.panel-tab:hover { color: var(--muted2); }
-.panel-tab.active { color: var(--text); border-bottom-color: var(--green); }
-
-#fileList {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
-  overscroll-behavior: contain;
-}
-
-.file-entry {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  cursor: pointer;
-  transition: background 0.1s;
-  border-left: 2px solid transparent;
-  user-select: none;
-}
-.file-entry:hover { background: var(--surface2); }
-.file-entry.active {
-  background: rgba(88,166,255,0.07);
-  border-left-color: var(--blue);
-}
-
-.file-status {
-  font-size: 11px;
-  font-weight: 700;
-  width: 14px;
-  flex-shrink: 0;
-  text-align: center;
-}
-.s-M { color: var(--yellow); }
-.s-A { color: var(--green); }
-.s-D { color: var(--red); }
-.s-R { color: var(--blue); }
-.s-Q { color: var(--muted2); }
-
-.file-entry-name {
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-}
-
-.file-edit-hint {
-  font-size: 10px;
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.file-entry:hover .file-edit-hint { opacity: 1; }
-
-.tree-folder {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  cursor: pointer;
-  color: var(--muted2);
-  font-size: 12px;
-  user-select: none;
-  transition: background 0.1s;
-}
-.tree-folder:hover { background: var(--surface2); }
-
-.folder-arrow {
-  font-size: 9px;
-  color: var(--muted);
-  width: 10px;
-  flex-shrink: 0;
-}
-
-.tree-children { border-left: 1px solid var(--border); margin-left: 18px; }
-
-/* ── Center: diff + commit ─────────────────────────────── */
-#centerPanel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/* ── Diff view ─────────────────────────────────────────── */
-#diffPanel {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.diff-toolbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 7px 14px;
-  font-size: 11px;
-  color: var(--muted2);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.diff-toolbar .diff-file-label { color: var(--text); font-size: 12px; }
-.diff-toolbar .diff-cmd { color: var(--muted); }
-
-.diff-content {
-  flex: 1;
-  overflow: auto;
-  padding: 0;
-  overscroll-behavior: contain;
-}
-
-.diff-line {
-  display: flex;
-  align-items: stretch;
-  min-width: max-content;
-}
-.diff-line:hover { background: rgba(255,255,255,0.015); }
-
-.diff-line.add { background: rgba(63,185,80,0.06); }
-.diff-line.add:hover { background: rgba(63,185,80,0.1); }
-.diff-line.remove { background: rgba(248,81,73,0.06); }
-.diff-line.remove:hover { background: rgba(248,81,73,0.1); }
-.diff-line.meta { background: rgba(88,166,255,0.05); }
-.diff-line.neutral { }
-
-.diff-ln {
-  width: 44px;
-  padding: 0 8px;
-  text-align: right;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.7;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-  user-select: none;
-}
-
-.diff-sign {
-  width: 18px;
-  padding: 0 4px;
-  text-align: center;
-  font-size: 12px;
-  line-height: 1.7;
-  flex-shrink: 0;
-}
-.diff-line.add .diff-sign { color: var(--green); }
-.diff-line.remove .diff-sign { color: var(--red); }
-.diff-line.meta .diff-sign { color: var(--blue); }
-.diff-line.neutral .diff-sign { color: transparent; }
-
-.diff-text {
-  padding: 0 14px 0 4px;
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre;
-  flex: 1;
-}
-.diff-line.add .diff-text { color: #85e89d; }
-.diff-line.remove .diff-text { color: #fdaeb7; }
-.diff-line.meta .diff-text { color: var(--muted2); }
-.diff-line.neutral .diff-text { color: var(--text); }
-
-/* ── Commit bar ────────────────────────────────────────── */
-#commitBar {
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.commit-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.commit-ps1 { color: var(--green); font-weight: 700; font-size: 13px; white-space: nowrap; }
-
-#commitMsg {
-  flex: 1;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--border2);
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  padding: 4px 0;
-  outline: none;
-  transition: border-color 0.15s;
-}
-#commitMsg:focus { border-bottom-color: var(--blue); }
-#commitMsg::placeholder { color: var(--muted); }
-
-.push-btn {
-  background: var(--green);
-  color: #000;
-  border: none;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 7px 16px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: filter 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.push-btn:hover { filter: brightness(1.12); }
-.push-btn:active { filter: brightness(0.9); }
-.push-btn:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; filter: none; border: 1px solid var(--border); }
-
-/* ── Editor panel (right) ──────────────────────────────── */
-#editorPanel {
-  width: 0;
-  border-left: 1px solid transparent;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-  transition: width 0.2s ease, border-color 0.2s;
-}
-#editorPanel.open {
-  width: 46%;
-  border-left-color: var(--border);
-}
-
-.editor-toolbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 7px 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.editor-file-label {
-  flex: 1;
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.editor-status {
-  font-size: 11px;
-  color: var(--muted2);
-  white-space: nowrap;
-}
-.editor-status.unsaved { color: var(--yellow); }
-
-.editor-btn {
-  background: none;
-  border: 1px solid var(--border2);
-  color: var(--muted2);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  padding: 3px 9px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-.editor-btn:hover { color: var(--text); border-color: var(--muted2); }
-.editor-btn.save-btn { border-color: rgba(63,185,80,0.4); color: var(--green); }
-.editor-btn.save-btn:hover { background: rgba(63,185,80,0.1); }
-.editor-btn.close-btn { border-color: transparent; }
-.editor-btn.close-btn:hover { color: var(--red); border-color: rgba(248,81,73,0.4); }
-
-#editorCM {
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* ── Empty state ───────────────────────────────────────── */
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  gap: 8px;
-  padding: 40px;
-  text-align: center;
-}
-
-.empty-state .empty-icon { font-size: 28px; margin-bottom: 4px; }
-.empty-state .empty-title { color: var(--muted2); font-size: 14px; font-weight: 600; }
-.empty-state .empty-sub { font-size: 12px; }
-
-/* ── Toast ─────────────────────────────────────────────── */
-#toast {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(12px);
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  color: var(--text);
-  font-size: 12px;
-  padding: 8px 18px;
-  border-radius: 3px;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 999;
-  transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
-  white-space: nowrap;
-}
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#toast.success { border-color: rgba(63,185,80,0.5); color: var(--green); }
-#toast.error { border-color: rgba(248,81,73,0.5); color: var(--red); }
-
-/* ── Terminal panel ────────────────────────────────────── */
-#termPanel {
-  width: 380px;
-  min-width: 220px;
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #0d0d0d;
-}
-
-#termPanel.hidden { display: none; }
-
-#termContainer {
-  flex: 1;
-  overflow: hidden;
-  padding: 4px;
-}
-
-/* xterm overrides */
-.xterm { height: 100%; }
-.xterm-viewport {
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  overflow-y: scroll !important; /* ensure xterm doesn't hide the scrollbar */
-}
-/* Let touch events reach the viewport for native scroll on mobile */
-.xterm-screen { touch-action: pan-y; }
-
-/* ── CodeMirror overrides ──────────────────────────────── */
-.CodeMirror {
-  height: 100%;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  line-height: 1.7;
-  background: var(--bg) !important;
-  color: var(--text) !important;
-  border: none;
-}
-.CodeMirror-scroll { overflow-x: auto !important; overflow-y: auto !important; }
-.CodeMirror-lines { padding: 12px 0; }
-.CodeMirror-line { padding: 0 16px !important; }
-.CodeMirror-gutters {
-  background: var(--surface) !important;
-  border-right: 1px solid var(--border) !important;
-}
-.CodeMirror-linenumber { color: var(--muted) !important; padding: 0 8px; }
-.CodeMirror-cursor { border-left: 2px solid var(--green) !important; }
-.CodeMirror-selected { background: rgba(88,166,255,0.15) !important; }
-.CodeMirror-focused .CodeMirror-selected { background: rgba(88,166,255,0.2) !important; }
-
-/* ── Diff overflow fix ─────────────────────────────────── */
-.diff-content { overflow-x: auto; overflow-y: auto; }
-.diff-line { min-width: 0; }
-.diff-text { overflow-wrap: anywhere; white-space: pre-wrap; word-break: break-all; }
-
-/* ── Spinner ───────────────────────────────────────────── */
-.spinner {
-  display: inline-block;
-  width: 12px; height: 12px;
-  border: 1.5px solid var(--muted);
-  border-top-color: var(--text);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  vertical-align: middle;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Loading state ─────────────────────────────────────── */
-.loading-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  color: var(--muted2);
-  font-size: 12px;
-}
-
-/* ── Responsive: mobile stacked ────────────────────────── */
-@media (max-width: 640px) {
-  /* ── Base font scale down ── */
-  body { font-size: 12px; }
-
-  /* ── Topbar ── */
-  #topbar { padding: 0 12px; height: 44px; gap: 8px; }
-  .logo { font-size: 12px; gap: 6px; }
-  .logo-icon { width: 16px; height: 16px; }
-  .topbar-btn { font-size: 10px; padding: 3px 8px; }
-  .repo-name { font-size: 11px; max-width: 100px; }
-  .branch-tag { font-size: 10px; padding: 2px 6px; }
-  .commit-preview { display: none; } /* hide on small screens */
-  #topbarSep { display: none !important; }
-
-  /* ── Connect screen ── */
-  .connect-wrap { max-width: 100%; }
-  .connect-header .prompt-line { font-size: 13px; }
-  .connect-header p { font-size: 11px; }
-  .section-head { font-size: 10px; }
-  .project-item { padding: 10px 10px; }
-  .proj-name { font-size: 12px; }
-  .proj-path { font-size: 10px; }
-  .cli-input { font-size: 12px; padding: 10px 10px; }
-  .cli-btn { font-size: 11px; padding: 10px 12px; }
-
-  /* ── Main layout: full-screen single panel with bottom nav ── */
-  #mainLayout {
-    flex-direction: column;
-    position: relative;
-    padding-bottom: 52px; /* space for bottom nav */
-  }
-
-  /* Hide all panels by default on mobile, show active one */
-  #filePanel, #centerPanel, #editorPanel, #termPanel {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100%;
-    border: none !important;
-    display: none;
-    flex-direction: column;
-  }
-
-  #filePanel.mobile-active,
-  #centerPanel.mobile-active,
-  #editorPanel.mobile-active,
-  #termPanel.mobile-active { display: flex; }
-
-  #termPanel { width: 100% !important; border-left: none !important; }
-
-  /* editor panel open state on mobile */
-  #editorPanel.open { width: 100% !important; }
-
-  /* ── File panel ── */
-  .panel-tab { font-size: 10px; padding: 8px 4px 6px; }
-  .file-entry { padding: 11px 12px; }
-  .file-entry-name { font-size: 12px; }
-  .file-edit-hint { display: none; }
-  .tree-folder { padding: 10px 12px; font-size: 12px; }
-
-  /* ── Diff panel ── */
-  .diff-toolbar { font-size: 10px; padding: 6px 10px; }
-  .diff-ln { width: 28px; font-size: 10px; }
-  .diff-text { font-size: 11px; padding: 0 8px 0 4px; }
-  .diff-sign { width: 14px; }
-
-  /* ── Commit bar ── */
-  #commitBar { padding: 10px 12px; gap: 6px; }
-  .commit-ps1 { font-size: 12px; }
-  #commitMsg { font-size: 12px; }
-  .push-btn { font-size: 11px; padding: 8px 12px; }
-
-  /* ── Editor ── */
-  .editor-toolbar { padding: 6px 10px; gap: 6px; }
-  .editor-file-label { font-size: 11px; }
-  .editor-btn { font-size: 10px; padding: 4px 8px; }
-  .CodeMirror { font-size: 11px !important; }
-
-  /* ── Bottom nav bar ── */
-  #mobileNav {
-    display: flex !important;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: 52px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    z-index: 50;
-  }
-
-  .mobile-nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    cursor: pointer;
-    transition: color 0.15s;
-    border-top: 2px solid transparent;
-    padding: 6px 0 4px;
-  }
-  .mobile-nav-btn.active { color: var(--green); border-top-color: var(--green); }
-  .mobile-nav-btn svg { width: 18px; height: 18px; }
-
-  #devBanner {
-    top: auto !important;
-    bottom: 60px !important;
-    font-size: 11px !important;
-    padding: 10px 12px !important;
-    max-width: 90vw;
-    white-space: normal !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 8px !important;
-  }
-}
-</style>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-unicode11@0.8.0/lib/addon-unicode11.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body>
 
 <!-- Top bar -->
 <div id="topbar">
-  <div class="logo">
+  <div class="logo" onclick="goHome()" title="Return to scaffolding screen">
     <svg class="logo-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Two stacked commit nodes connected by a branching line — abstract git graph -->
       <circle cx="6" cy="5" r="2" fill="currentColor"/>
       <circle cx="14" cy="10" r="2" fill="currentColor"/>
       <circle cx="6" cy="15" r="2" fill="currentColor"/>
@@ -895,11 +43,20 @@ html {
   </div>
   <span class="topbar-sep" id="topbarSep" style="display:none">—</span>
   <div id="repoMeta" style="display:none"></div>
-  <button class="topbar-btn" id="changeRepoBtn" style="display:none" onclick="showConnect()">cd ..</button>
-  <button class="topbar-btn" id="termToggleBtn" style="display:none" onclick="toggleTerm()">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-    terminal
-  </button>
+  <div class="topbar-actions" style="margin-left: auto; display: flex; gap: 8px;">
+    <button class="topbar-btn icon-only" id="topbarTermBtn" onclick="toggleTerm()" title="Toggle Terminal" aria-label="Toggle Terminal" style="display:none;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="4 17 10 11 4 5"></polyline>
+        <line x1="12" y1="19" x2="20" y2="19"></line>
+      </svg>
+    </button>
+    <button class="topbar-btn icon-only" id="settingsBtn" onclick="toggleSettings()" title="Settings" aria-label="Settings" style="margin-left: 0;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
 </div>
 
 <!-- Connect screen -->
@@ -911,17 +68,27 @@ html {
         <span class="ps1-cmd">groove</span>
         <span class="cursor-blink"></span>
       </div>
-      <p># select a git repository to get started</p>
+      <p id="connectPrompt"># select a project to get started</p>
+    </div>
+
+    <div id="browseControls" class="browse-controls">
+      <button class="cli-btn secondary" id="backDirBtn" onclick="goBackDir()" style="display:none;">← back</button>
+      <div class="search-input-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input class="cli-input repo-search-input" id="repoSearchInput" type="text" placeholder="search projects..." autocomplete="off" spellcheck="false" style="height: 38px; box-sizing: border-box;" onkeyup="if(event.key==='Enter' || event.keyCode===13) searchRepos()"/>
+      </div>
+      <button class="cli-btn search-submit-btn" onclick="searchRepos()">search</button>
     </div>
 
     <div class="section-head" id="reposLabel">scanning...</div>
     <div class="project-list" id="projectList">
-      <div class="loading-row"><span class="spinner"></span> looking for git repos...</div>
+      <div class="loading-row"><span class="spinner"></span> looking for projects...</div>
     </div>
 
-    <div class="divider-line">or type path</div>
-
-    <div class="input-row">
+    <div class="input-row" style="display:none">
       <input class="cli-input" id="repoPathInput" type="text" placeholder="/path/to/your/repo" autocomplete="off" autocorrect="off" spellcheck="false"/>
       <button class="cli-btn" onclick="connectRepo()">open</button>
     </div>
@@ -930,88 +97,135 @@ html {
 
 <!-- Main 3-panel layout -->
 <div id="mainLayout" style="display:none">
-
-  <!-- Left: changed files -->
+  <!-- Left: changed files / file tree (full height sidebar) -->
   <div id="filePanel">
     <div class="panel-header" style="padding:0;gap:0;">
-      <button class="panel-tab active" id="tabChanges" onclick="switchTab('changes')">changes <span class="count-badge" id="fileCount">0</span></button>
-      <button class="panel-tab" id="tabAll" onclick="switchTab('all')">all files</button>
+      <button class="panel-tab" id="tabChanges" onclick="switchTab('changes')">changes <span class="count-badge" id="fileCount">0</span></button>
+      <button class="panel-tab active" id="tabAll" onclick="switchTab('all')">all files</button>
     </div>
-    <div id="treeSearch" style="display:none;padding:6px 8px;border-bottom:1px solid var(--border);">
-      <input class="cli-input" id="treeSearchInput" type="text" placeholder="filter files..." autocomplete="off" spellcheck="false" style="font-size:11px;padding:5px 8px;"/>
+    <div id="selectAllRow" style="display:none;">
+      <label class="select-all-label">
+        <input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"/>
+        <span>select all</span>
+      </label>
+    </div>
+    <div id="treeSearch" class="tree-search-wrap">
+      <div class="tree-search-inner">
+        <svg class="search-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="tree-search-input" id="treeSearchInput" type="text" placeholder="search files in project..." autocomplete="off" spellcheck="false"/>
+      </div>
     </div>
     <div id="fileList"></div>
-  </div>
-
-  <!-- Center: diff + commit -->
-  <div id="centerPanel">
-    <div id="diffPanel">
-      <div class="diff-toolbar" id="diffToolbar">
-        <span class="diff-cmd">$</span>
-        <span>git diff HEAD</span>
-      </div>
-      <div class="diff-content" id="diffContent">
-        <div class="empty-state">
-          <div class="empty-icon">▓</div>
-          <div class="empty-title">no diff</div>
-          <div class="empty-sub">select a file to see its diff</div>
-        </div>
+    <div class="action-chips-wrapper" id="actionChipsWrapper" style="display:none;">
+      <div class="action-chips" id="actionChips">
+        <button class="action-chip active" id="chipCommit" onclick="setAction('commit')">
+          <span class="chip-dot"></span>commit
+        </button>
+        <button class="action-chip" id="chipPush" onclick="setAction('push')">
+          <span class="chip-dot"></span>push
+          <span class="chip-count" id="pushCount" style="display:none">0</span>
+        </button>
       </div>
     </div>
-
-    <div id="commitBar">
+    <div id="commitBar" style="display:none;">
       <div class="commit-row">
-        <span class="commit-ps1">$</span>
-        <input id="commitMsg" type="text" placeholder="git commit -m &quot;...&quot;" autocomplete="off" spellcheck="false"/>
-        <button class="push-btn" id="pushBtn" onclick="doPush()">
-          ↑ push
+        <span class="commit-ps1" id="actionPs1">$</span>
+        <input id="commitMsg" type="text" placeholder="commit message..." autocomplete="off" spellcheck="false"/>
+        <button class="push-btn" id="pushBtn" onclick="executeAction()" disabled>
+          ✓ commit
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Right: code editor (opens on file click) -->
-  <div id="editorPanel">
-    <div class="editor-toolbar" id="editorToolbar">
-      <span class="editor-file-label" id="editorFilename">—</span>
-      <span class="editor-status" id="editorStatus">saved</span>
-      <button class="editor-btn save-btn" onclick="saveFile()">save</button>
-      <button class="editor-btn close-btn" onclick="closeEditor()" title="Close editor">✕</button>
-    </div>
-    <div id="editorCM" style="flex:1;overflow:auto;min-height:0;"></div>
-  </div>
+  <!-- Right: Main Content Area (Diff & Editor on top + Terminal docked at bottom) -->
+  <div id="contentArea">
+    <!-- Top Workspace: CenterPanel (diff) + EditorPanel -->
+    <div id="workspaceArea">
+      <!-- Center: diff -->
+      <div id="centerPanel">
+        <div id="diffPanel">
+          <div class="diff-toolbar" id="diffToolbar">
+            <div class="diff-toolbar-title">
+              <span class="diff-cmd">$</span>
+              <span id="diffCmdText">git diff HEAD</span>
+              <span class="diff-file-label" id="diffFileLabel"></span>
+            </div>
+            <button class="editor-btn close-btn" onclick="closeDiff()" title="Close diff">✕</button>
+          </div>
+          <div class="diff-content" id="diffContent">
+            <div class="empty-state">
+              <div class="empty-icon">▓</div>
+              <div class="empty-title">no diff</div>
+              <div class="empty-sub">select a file to see its diff</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-  <!-- Terminal panel -->
-  <div id="termPanel">
-    <div class="panel-header" style="justify-content:space-between;padding:6px 12px;">
-      <span>terminal</span>
-      <div style="display:flex;gap:6px;">
-        <button class="editor-btn" onclick="clearTerm()" style="font-size:10px;padding:2px 8px;">clear</button>
-        <button class="editor-btn" onclick="killTerm()" style="font-size:10px;padding:2px 8px;border-color:rgba(248,81,73,0.4);color:var(--red);">✕ kill</button>
+      <!-- Right: code editor (opens on file click) -->
+      <div id="editorPanel">
+        <div class="editor-tabs-bar" id="editorTabsBar" ondrop="dropFileToTabs(event)" ondragover="allowDrop(event)" style="display:none;"></div>
+        <div class="editor-toolbar hidden" id="editorToolbar">
+          <span class="editor-file-label" id="editorFilename">—</span>
+          <span class="editor-status" id="editorStatus" style="display:none;"></span>
+          <button class="editor-btn icon-btn" id="editorMdToggleBtn" onclick="toggleMdPreview()" title="Toggle Markdown preview" aria-label="Toggle Markdown preview" style="display:none;">
+            <svg class="eye-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="editor-btn save-btn" id="editorSaveBtn" onclick="saveFile()" style="display:none;">save</button>
+          <button class="editor-btn close-btn" onclick="closeEditor()" title="Close editor">✕</button>
+        </div>
+        <div id="editorEmpty" class="empty-state" style="display:flex;">
+          <div class="empty-icon">▒</div>
+          <div class="empty-title">no file opened</div>
+          <div class="empty-sub">select a file to view or edit</div>
+          <button class="empty-action-btn" onclick="goToFilesTab()">go to files →</button>
+        </div>
+        <div id="editorCM" style="display:none;flex:1;overflow:auto;min-height:0;"></div>
+        <div id="editorMdPreview" style="display:none;flex:1;overflow:auto;min-height:0;" class="md-preview-container"></div>
+        <div id="editorImagePreview" style="display:none;flex:1;overflow:auto;min-height:0;" class="image-preview-container">
+          <div class="image-preview-card">
+            <div class="image-checkerboard-wrap">
+              <img id="imagePreviewImg" class="image-preview-element" alt="Image preview" />
+            </div>
+            <div class="image-preview-meta" id="imagePreviewMeta">
+              <span id="imageMetaDimensions">—</span>
+              <span class="meta-dot">·</span>
+              <span id="imageMetaSize">—</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="termContainer"></div>
+
+    <!-- Terminal panel (bottom docked under editor/diff) -->
+    <div id="termPanel" class="hidden">
+      <div class="panel-header" style="justify-content:space-between;padding:0;background:var(--bg);">
+        <div id="termTabs" style="display:flex; flex:1; overflow-x:auto;">
+          <!-- Tabs injected here -->
+        </div>
+        <div style="display:flex;gap:6px;align-items:center; padding:0 8px;">
+          <button class="editor-btn" onclick="addTerm()" style="font-size:14px;padding:0 6px;" title="New Terminal">＋</button>
+          <button class="editor-btn" onclick="clearTerm()" style="font-size:10px;padding:2px 8px;">clear</button>
+          <button class="editor-btn" id="termKillBtn" onclick="killTerm()" disabled style="font-size:10px;padding:2px 8px;border-color:rgba(248,81,73,0.4);color:var(--red);opacity:0.5;cursor:not-allowed;">✕ kill</button>
+          <button class="editor-btn close-btn" onclick="toggleTerm()" title="Close terminal">✕</button>
+        </div>
+      </div>
+      <div id="termContainers" style="flex:1; position:relative; overflow:hidden;"></div>
+    </div>
   </div>
 
 </div>
 
-<!-- Mobile bottom nav (hidden on desktop via CSS) -->
+<!-- Mobile bottom nav -->
 <nav id="mobileNav" style="display:none">
   <button class="mobile-nav-btn active" id="mnFiles" onclick="mobileTab('files')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
     files
   </button>
-  <button class="mobile-nav-btn" id="mnDiff" onclick="mobileTab('diff')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-    diff
-  </button>
   <button class="mobile-nav-btn" id="mnEditor" onclick="mobileTab('editor')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     edit
-  </button>
-  <button class="mobile-nav-btn" id="mnPush" onclick="mobileTab('push')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-    push
   </button>
   <button class="mobile-nav-btn" id="mnTerm" onclick="mobileTab('term')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
@@ -1032,791 +246,70 @@ html {
     style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;">✕</button>
 </div>
 
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this) toggleSettings()">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-header-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </div>
+      <button class="modal-close-btn" onclick="toggleSettings()" title="Close">&times;</button>
+    </div>
+    <div class="modal-content">
+      <div class="settings-group">
+        <div class="settings-group-title">Editor Preferences</div>
+        <div class="settings-row">
+          <div class="settings-label">Font Size</div>
+          <select id="settingFontSize" class="settings-select" onchange="applySettings()">
+            <option value="12">12px</option>
+            <option value="13" selected>13px (Default)</option>
+            <option value="14">14px</option>
+            <option value="16">16px</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">Tab Size</div>
+          <select id="settingTabSize" class="settings-select" onchange="applySettings()">
+            <option value="2" selected>2 Spaces</option>
+            <option value="4">4 Spaces</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">Word Wrap</div>
+          <label class="settings-switch">
+            <input type="checkbox" id="settingWordWrap" onchange="applySettings()"/>
+            <span class="settings-slider"></span>
+          </label>
+        </div>
+      </div>
+
+
+      <div class="settings-group">
+        <div class="settings-group-title">Project & Git</div>
+        <div class="settings-row">
+          <div class="settings-label">Repository</div>
+          <div class="settings-val" id="settingRepoPath">None</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">Scaffolding Screen</div>
+          <button class="settings-action-btn" onclick="toggleSettings(); goHome();">Change Project</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
+<script src="/js/app.js?v=5"></script>
 <script>
-// ─── State ───────────────────────────────────────────────
-let REPO = '';
-let activeFile = null;
-let editorDirty = false;
-let allDiffLines = [];   // full parsed diff
-let fileRanges = {};     // file → { start, end } indices into allDiffLines
-let currentTab = 'changes';
-let allTreeFiles = [];   // cached full file list
-
-// ─── Utilities ───────────────────────────────────────────
-const $ = id => document.getElementById(id);
-
-function esc(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function showToast(msg, type = 'success') {
-  const t = $('toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => { t.className = 'toast ' + type; }, 3000);
-}
-
-// ─── Repo scanning ───────────────────────────────────────
-async function loadRepos() {
-  try {
-    const res = await fetch('/api/repos');
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    const repos = d.repos;
-    $('reposLabel').textContent = repos.length
-      ? `${repos.length} repo${repos.length !== 1 ? 's' : ''} found`
-      : 'no repos found';
-    if (!repos.length) {
-      $('projectList').innerHTML = '<div style="padding:10px 0;color:var(--muted);font-size:12px">nothing in ~/Desktop, ~/Documents, ~/dev…</div>';
-      return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
-    $('projectList').innerHTML = repos.map(p => {
-      const parts = p.split('/');
-      const name = parts[parts.length - 1];
-      const dir = parts.slice(0, -1).join('/') + '/';
-      return `
-        <div class="project-item" onclick="selectProject('${p.replace(/'/g, "\\'")}')">
-          <span class="proj-sigil">▶</span>
-          <span class="proj-name">${esc(name)}</span>
-          <span class="proj-path">${esc(dir)}</span>
-          <span class="proj-arrow">↵</span>
-        </div>`;
-    }).join('');
-  } catch (e) {
-    $('reposLabel').textContent = 'scan failed';
-    $('projectList').innerHTML = '';
-  }
-}
-
-function selectProject(p) {
-  $('repoPathInput').value = p;
-  connectRepo();
-}
-
-function showConnect() {
-  $('connectScreen').style.display = 'flex';
-  $('mainLayout').style.display = 'none';
-  $('repoMeta').style.display = 'none';
-  $('topbarSep').style.display = 'none';
-  $('changeRepoBtn').style.display = 'none';
-  loadRepos();
-}
-
-async function connectRepo() {
-  const p = $('repoPathInput').value.trim();
-  if (!p) return;
-  REPO = p;
-  $('connectScreen').style.display = 'none';
-  $('mainLayout').style.display = 'flex';
-  $('repoMeta').style.display = 'flex';
-  $('topbarSep').style.display = '';
-  $('changeRepoBtn').style.display = 'block';
-  $('repoMeta').innerHTML = '<span class="spinner"></span>';
-  $('fileList').innerHTML = '<div class="loading-row"><span class="spinner"></span> loading...</div>';
-  $('termToggleBtn').style.display = 'block';
-  $('termPanel').classList.add('hidden');
-  initMobile();
-  await Promise.all([loadRepoInfo(), loadStatus()]);
-  // Reconnect terminal to new repo directory
-  if (termReady && termSocket) {
-    termSocket.close();
-    termReady = false;
-  }
-}
-
-// ─── Repo info (topbar) ──────────────────────────────────
-async function loadRepoInfo() {
-  try {
-    const res = await fetch('/api/repo-info?repoPath=' + encodeURIComponent(REPO));
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    $('repoMeta').innerHTML = `
-      <a href="${esc(d.remote)}" target="_blank" class="repo-name">${esc(d.repoName)}</a>
-      <div class="branch-tag">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-        ${esc(d.branch)}
-      </div>
-      ${d.lastCommit.subject ? `<div class="commit-preview" title="${esc(d.lastCommit.subject)}">${esc(d.lastCommit.subject)} · ${esc(d.lastCommit.time)}</div>` : ''}
-    `;
-  } catch (e) {
-    $('repoMeta').innerHTML = `<span style="color:var(--red);font-size:12px">${esc(e.message)}</span>`;
-  }
-}
-
-// ─── Git status & diff ───────────────────────────────────
-function parseStatus(s) {
-  if (!s) return [];
-  return s.split('\n').filter(Boolean).map(line => {
-    // git status --short can output:
-    //   "X  filename"  (1 status char + space + filename)  e.g. "M adroiterp/..."
-    //   "XY filename"  (2 status chars + space + filename) e.g. " M adroiterp/..."
-    //   "?? filename"  (untracked)
-    // Split on the FIRST space that is followed by a non-space (the filename start)
-    const m = line.match(/^([ A-Z?!]+?) (.+)$/);
-    if (!m) return null;
-    const xy = m[1];
-    const x = xy[0], y = xy[1] || ' ';
-    const code = x !== ' ' ? x : y !== ' ' ? y : '?';
-    let file = m[2];
-    // Git quotes filenames with special chars
-    if (file.startsWith('"') && file.endsWith('"')) {
-      file = file.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-    }
-    // Renamed: "old -> new" — take the new name
-    if (file.includes(' -> ')) {
-      file = file.split(' -> ').pop();
-      if (file.startsWith('"') && file.endsWith('"')) file = file.slice(1, -1);
-    }
-    return { code, file };
-  }).filter(Boolean);
-}
-
-function parseDiff(raw) {
-  if (!raw) return [];
-  const lines = [];
-  let oldL = 0, newL = 0;
-  for (const line of raw.split('\n')) {
-    if (line.startsWith('diff --git')) {
-      lines.push({ type: 'file-header', text: line });
-    } else if (line.startsWith('@@ ')) {
-      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (m) { oldL = +m[1]; newL = +m[2]; }
-      lines.push({ type: 'meta', text: line, o: '', n: '' });
-    } else if (line.startsWith('+') && !line.startsWith('+++')) {
-      lines.push({ type: 'add', text: line, o: '', n: newL++ });
-    } else if (line.startsWith('-') && !line.startsWith('---')) {
-      lines.push({ type: 'remove', text: line, o: oldL++, n: '' });
-    } else if (!line.startsWith('---') && !line.startsWith('+++') &&
-               !line.startsWith('index ') && !line.startsWith('new file') &&
-               !line.startsWith('deleted file') && !line.startsWith('Binary')) {
-      lines.push({ type: 'neutral', text: line, o: oldL++, n: newL++ });
-    }
-  }
-  return lines;
-}
-
-function buildFileRanges(diffLines) {
-  const ranges = {};
-  let current = null;
-  let start = 0;
-  for (let i = 0; i < diffLines.length; i++) {
-    const l = diffLines[i];
-    if (l.type === 'file-header') {
-      if (current !== null) ranges[current].end = i - 1;
-      // extract filename from "diff --git a/foo b/foo"
-      const m = l.text.match(/diff --git a\/.+ b\/(.+)/);
-      current = m ? m[1] : null;
-      start = i;
-      if (current) ranges[current] = { start, end: diffLines.length - 1 };
-    }
-  }
-  return ranges;
-}
-
-async function loadStatus() {
-  try {
-    const res = await fetch('/api/status?repoPath=' + encodeURIComponent(REPO));
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-
-    const files = parseStatus(d.status);
-    allDiffLines = parseDiff(d.diff);
-    fileRanges = buildFileRanges(allDiffLines);
-
-    $('fileCount').textContent = files.length;
-
-    if (!files.length) {
-      $('fileList').innerHTML = `
-        <div class="empty-state" style="padding:30px 14px">
-          <div class="empty-icon" style="font-size:20px">✓</div>
-          <div class="empty-title">clean</div>
-          <div class="empty-sub">nothing to commit</div>
-        </div>`;
-      $('pushBtn').disabled = true;
-      return;
-    }
-
-    const statusClass = c => ({ M:'s-M', A:'s-A', D:'s-D', R:'s-R' }[c] || 's-Q');
-
-    $('fileList').innerHTML = files.map(f => `
-      <div class="file-entry" data-file="${esc(f.file)}" onclick="selectFile(this)">
-        <span class="file-status ${statusClass(f.code)}">${f.code}</span>
-        <span class="file-entry-name" title="${esc(f.file)}">${esc(f.file)}</span>
-        <span class="file-edit-hint">edit</span>
-      </div>`).join('');
-
-    $('pushBtn').disabled = false;
-
-    // show full diff by default
-    renderDiff(allDiffLines, 'all changes');
-
-  } catch (e) {
-    $('fileList').innerHTML = `<div style="padding:12px;color:var(--red);font-size:12px">${esc(e.message)}</div>`;
-  }
-}
-
-// ─── Diff rendering ──────────────────────────────────────
-function renderDiff(lines, label) {
-  $('diffToolbar').innerHTML = `
-    <span class="diff-cmd">$</span>
-    <span>git diff HEAD ${label === 'all changes' ? '' : '— '}</span>
-    <span class="diff-file-label">${esc(label)}</span>
-  `;
-
-  if (!lines.length) {
-    $('diffContent').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">▒</div>
-        <div class="empty-title">no diff for this file</div>
-        <div class="empty-sub">file may be untracked or binary</div>
-      </div>`;
-    return;
-  }
-
-  const filtered = lines.filter(l => l.type !== 'file-header');
-
-  $('diffContent').innerHTML = filtered.map(l => `
-    <div class="diff-line ${l.type}">
-      <div class="diff-ln">${l.o !== '' ? l.o : ''}</div>
-      <div class="diff-ln">${l.n !== '' ? l.n : ''}</div>
-      <div class="diff-sign">${l.type === 'add' ? '+' : l.type === 'remove' ? '-' : l.type === 'meta' ? '↕' : ''}</div>
-      <div class="diff-text">${esc(l.text)}</div>
-    </div>`).join('');
-}
-
-// ─── File selection ──────────────────────────────────────
-function selectFile(el) {
-  const file = el.dataset.file;
-  if (!file) return;
-
-  // Update active highlight
-  document.querySelectorAll('.file-entry').forEach(e => e.classList.remove('active'));
-  el.classList.add('active');
-
-  activeFile = file;
-
-  // Show file-specific diff
-  const range = fileRanges[file];
-  if (range) {
-    renderDiff(allDiffLines.slice(range.start, range.end + 1), file);
-  } else {
-    renderDiff([], file);
-  }
-
-  // On mobile: go to diff tab first, editor opens separately via nav
-  if (isMobile()) {
-    mobileTab('diff');
-  }
-
-  // Open editor with file contents
-  openEditor(file);
-}
-
-// ─── Editor (CodeMirror) ─────────────────────────────────
-let cmEditor = null;
-
-CodeMirror.modeURL = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/%N/%N.min.js';
-
-function getMode(filename) {
-  const info = CodeMirror.findModeByFileName(filename);
-  return info ? info.mode : 'null';
-}
-
-function initCM() {
-  if (cmEditor) return;
-  cmEditor = CodeMirror($('editorCM'), {
-    value: '',
-    theme: 'tomorrow-night-eighties',
-    lineNumbers: true,
-    lineWrapping: true,        // ← no horizontal scroll
-    tabSize: 2,
-    indentWithTabs: false,
-    autofocus: false,
-    extraKeys: {
-      'Ctrl-S': () => saveFile(),
-      'Cmd-S':  () => saveFile(),
-      Tab: cm => cm.replaceSelection('  '),
-    },
-  });
-  cmEditor.on('change', () => {
-    if (!editorDirty) {
-      editorDirty = true;
-      $('editorStatus').textContent = 'unsaved';
-      $('editorStatus').className = 'editor-status unsaved';
-    }
-  });
-}
-
-async function openEditor(file) {
-  initCM();
-  const panel = $('editorPanel');
-  $('editorFilename').textContent = file;
-  $('editorStatus').textContent = 'loading...';
-  $('editorStatus').className = 'editor-status';
-  cmEditor.setValue('');
-  panel.classList.add('open');
-  editorDirty = false;
-
-  // Set syntax mode from filename
-  const mode = getMode(file);
-  CodeMirror.autoLoadMode(cmEditor, mode);
-  cmEditor.setOption('mode', mode);
-
-  try {
-    const res = await fetch(`/api/file-read?repoPath=${encodeURIComponent(REPO)}&file=${encodeURIComponent(file)}`);
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    cmEditor.setValue(d.content);
-    cmEditor.clearHistory();
-    $('editorStatus').textContent = 'saved';
-    $('editorStatus').className = 'editor-status';
-    editorDirty = false;
-    // On mobile, switch to editor tab
-    if (isMobile()) mobileTab('editor');
-    // Refresh editor layout after panel opens
-    setTimeout(() => cmEditor.refresh(), 50);
-  } catch (e) {
-    cmEditor.setValue(`# error loading file\n# ${e.message}`);
-    $('editorStatus').textContent = 'error';
-    $('editorStatus').className = 'editor-status';
-  }
-}
-
-function closeEditor() {
-  if (editorDirty && !confirm('You have unsaved changes. Close anyway?')) return;
-  $('editorPanel').classList.remove('open');
-  activeFile = null;
-  editorDirty = false;
-  document.querySelectorAll('.file-entry').forEach(e => e.classList.remove('active'));
-}
-
-async function saveFile() {
-  if (!activeFile || !cmEditor) return;
-  const content = cmEditor.getValue();
-  $('editorStatus').textContent = 'saving...';
-  $('editorStatus').className = 'editor-status';
-  try {
-    const res = await fetch('/api/file-write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repoPath: REPO, file: activeFile, content })
-    });
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    editorDirty = false;
-    $('editorStatus').textContent = 'saved';
-    $('editorStatus').className = 'editor-status';
-    showToast(`saved ${activeFile}`);
-    await loadStatus();
-    const entry = document.querySelector(`.file-entry[data-file="${CSS.escape(activeFile)}"]`);
-    if (entry) entry.classList.add('active');
-  } catch (e) {
-    $('editorStatus').textContent = 'save failed';
-    $('editorStatus').className = 'editor-status unsaved';
-    showToast(e.message, 'error');
-  }
-}
-
-// ─── Push ────────────────────────────────────────────────
-// ─── Tab switching ───────────────────────────────────────
-function switchTab(tab) {
-  currentTab = tab;
-  $('tabChanges').classList.toggle('active', tab === 'changes');
-  $('tabAll').classList.toggle('active', tab === 'all');
-  $('treeSearch').style.display = tab === 'all' ? 'block' : 'none';
-  if (tab === 'all') {
-    if (allTreeFiles.length) {
-      renderTree(allTreeFiles);
-    } else {
-      loadFileTree();
-    }
-  } else {
-    loadStatus();
-  }
-}
-
-// ─── Full file tree ──────────────────────────────────────
-async function loadFileTree() {
-  $('fileList').innerHTML = '<div class="loading-row"><span class="spinner"></span> loading files...</div>';
-  try {
-    const res = await fetch('/api/file-tree?repoPath=' + encodeURIComponent(REPO));
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    allTreeFiles = d.files;
-    renderTree(allTreeFiles);
-    // wire up search
-    const input = $('treeSearchInput');
-    input.value = '';
-    input.oninput = () => {
-      const q = input.value.trim().toLowerCase();
-      renderTree(q ? allTreeFiles.filter(f => f.toLowerCase().includes(q)) : allTreeFiles);
-    };
-  } catch (e) {
-    $('fileList').innerHTML = `<div style="padding:12px;color:var(--red);font-size:12px">${esc(e.message)}</div>`;
-  }
-}
-
-function renderTree(files) {
-  if (!files.length) {
-    $('fileList').innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">no files match</div>';
-    return;
-  }
-
-  // Build a folder tree structure
-  const tree = {};
-  for (const f of files) {
-    const parts = f.split('/');
-    let node = tree;
-    for (let i = 0; i < parts.length - 1; i++) {
-      if (!node[parts[i]]) node[parts[i]] = {};
-      node = node[parts[i]];
-    }
-    node[parts[parts.length - 1]] = null; // null = file leaf
-  }
-
-  function renderNode(node, prefix, depth) {
-    let html = '';
-    const entries = Object.entries(node).sort(([a, av], [b, bv]) => {
-      // dirs first, then files
-      const aDir = av !== null, bDir = bv !== null;
-      if (aDir !== bDir) return aDir ? -1 : 1;
-      return a.localeCompare(b);
-    });
-    for (const [name, child] of entries) {
-      const fullPath = prefix ? `${prefix}/${name}` : name;
-      if (child === null) {
-        // file
-        const ext = name.includes('.') ? name.split('.').pop() : '';
-        html += `
-          <div class="file-entry tree-file" data-file="${esc(fullPath)}" onclick="selectFile(this)" style="padding-left:${12 + depth * 14}px">
-            <span class="file-status" style="color:var(--muted);font-size:10px">·</span>
-            <span class="file-entry-name" title="${esc(fullPath)}">${esc(name)}</span>
-            <span class="file-edit-hint">edit</span>
-          </div>`;
-      } else {
-        // folder — collapsible
-        const folderId = 'fold-' + CSS.escape(fullPath);
-        html += `
-          <div class="tree-folder" onclick="toggleFolder('${esc(fullPath)}')" style="padding-left:${12 + depth * 14}px">
-            <span class="folder-arrow" id="arr-${folderId}">▶</span>
-            <span style="color:var(--muted2)">${esc(name)}/</span>
-          </div>
-          <div class="tree-children" id="${folderId}" style="display:none">
-            ${renderNode(child, fullPath, depth + 1)}
-          </div>`;
-      }
-    }
-    return html;
-  }
-
-  $('fileList').innerHTML = renderNode(tree, '', 0);
-}
-
-function toggleFolder(path) {
-  const folderId = 'fold-' + CSS.escape(path);
-  const el = document.getElementById(folderId);
-  const arr = document.getElementById('arr-' + folderId);
-  if (!el) return;
-  const open = el.style.display !== 'none';
-  el.style.display = open ? 'none' : 'block';
-  if (arr) arr.textContent = open ? '▶' : '▼';
-}
-
-async function doPush() {
-  const msg = $('commitMsg').value.trim();
-  if (!msg) { showToast('enter a commit message', 'error'); $('commitMsg').focus(); return; }
-
-  const btn = $('pushBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> pushing...';
-
-  try {
-    const res = await fetch('/api/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg, repoPath: REPO })
-    });
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    $('commitMsg').value = '';
-    showToast('pushed ✓');
-    closeEditor();
-    $('fileList').innerHTML = '<div class="loading-row"><span class="spinner"></span> refreshing...</div>';
-    await Promise.all([loadRepoInfo(), loadStatus()]);
-  } catch (e) {
-    showToast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '↑ push';
-  }
-}
-
-// ─── Mobile nav ──────────────────────────────────────────
-const isMobile = () => window.innerWidth <= 640;
-
-let currentMobileTab = 'files';
-
-function mobileTab(tab) {
-  if (!isMobile()) return;
-  currentMobileTab = tab;
-
-  // Reset all nav buttons
-  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
-  const btnMap = { files: 'mnFiles', diff: 'mnDiff', editor: 'mnEditor', push: 'mnPush', term: 'mnTerm' };
-  const activeBtn = $(btnMap[tab]);
-  if (activeBtn) activeBtn.classList.add('active');
-
-  // Hide all panels
-  ['filePanel', 'centerPanel', 'editorPanel', 'termPanel'].forEach(id => {
-    $(id).classList.remove('mobile-active');
-  });
-
-  // Always restore defaults before switching
-  $('diffPanel').style.display = 'flex';
-  $('diffPanel').style.flex = '1';
-  $('commitBar').style.display = 'none';
-
-  if (tab === 'files') {
-    $('filePanel').classList.add('mobile-active');
-
-  } else if (tab === 'diff') {
-    $('centerPanel').classList.add('mobile-active');
-    $('diffPanel').style.display = 'flex';
-    $('diffPanel').style.flex = '1';
-    $('commitBar').style.display = 'none';
-
-  } else if (tab === 'editor') {
-    $('editorPanel').classList.add('mobile-active');
-    if (cmEditor) setTimeout(() => cmEditor.refresh(), 50);
-
-  } else if (tab === 'push') {
-    $('centerPanel').classList.add('mobile-active');
-    $('diffPanel').style.display = 'none';
-    $('commitBar').style.display = 'flex';
-    setTimeout(() => $('commitMsg').focus(), 100);
-
-  } else if (tab === 'term') {
-    $('termPanel').classList.add('mobile-active');
-    // Init terminal on first open, reconnect if repo changed
-    if (!termReady) {
-      initTerm();
-    } else {
-      setTimeout(() => { fitAddon && fitAddon.fit(); sendResize(); }, 50);
-    }
-  }
-}
-
-function initMobile() {
-  if (!isMobile()) return;
-  $('filePanel').classList.add('mobile-active');
-  $('centerPanel').classList.remove('mobile-active');
-  $('editorPanel').classList.remove('mobile-active');
-  currentMobileTab = 'files';
-}
-
-// When a file is selected on mobile, auto-switch to diff tab
-const _origSelectFile = window.selectFile;
-
-// ─── Terminal ────────────────────────────────────────────
-let term = null;
-let termSocket = null;
-let fitAddon = null;
-let termReady = false;
-let tailscaleIP = null;
-
-// Fetch Tailscale IP once on load
-fetch('/api/tailscale-ip').then(r => r.json()).then(d => { tailscaleIP = d.ip; }).catch(() => {});
-
-// Detect dev server URLs in terminal output
-// Matches output from Vite, Next.js, CRA, etc.
-// e.g. "Local:   http://localhost:3001"
-//      "On Your Network: http://192.168.x.x:5173"
-//      "localhost:8080"
-const DEV_URL_RE = /https?:\/\/(?:localhost|127\.0\.0\.1):(\d{2,5})/i;
-
-// Buffer partial terminal lines across chunks
-let termLineBuf = '';
-
-function checkTermOutputForDevServer(data) {
-  if (!tailscaleIP) return;
-
-  // Strip ANSI escape codes for clean matching
-  const clean = data.replace(/\x1b\[[0-9;]*[mGKHFABCDJsu]/g, '').replace(/\r/g, '');
-  termLineBuf += clean;
-
-  // Process complete lines
-  const lines = termLineBuf.split('\n');
-  termLineBuf = lines.pop(); // keep incomplete last chunk
-
-  for (const line of lines) {
-    const m = line.match(DEV_URL_RE);
-    if (!m) continue;
-    const port = m[1];
-    if (port === '9000') continue; // skip Groove's own port
-    const url = `http://${tailscaleIP}:${port}`;
-    const banner = $('devBanner');
-    $('devBannerLink').href = url;
-    $('devBannerLink').textContent = `open on phone ↗  ${url}`;
-    banner.style.display = 'flex';
-    clearTimeout(banner._timer);
-    banner._timer = setTimeout(() => { banner.style.display = 'none'; }, 30000);
-    break; // show banner for first match only
-  }
-}
-
-function initTerm() {
-  if (termReady) return;
-  termReady = true;
-
-  term = new Terminal({
-    theme: {
-      background: '#0d0d0d',
-      foreground: '#e2e2e2',
-      cursor:     '#3fb950',
-      black:      '#0d0d0d',
-      red:        '#f85149',
-      green:      '#3fb950',
-      yellow:     '#d29922',
-      blue:       '#58a6ff',
-      magenta:    '#bc8cff',
-      cyan:       '#39c5cf',
-      white:      '#e2e2e2',
-      brightBlack: '#555',
-      brightGreen: '#56d364',
-      brightBlue:  '#79c0ff',
-    },
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 13,
-    lineHeight: 1.5,
-    cursorBlink: true,
-    scrollback: 5000,
-    scrollSensitivity: 5,
-    fastScrollSensitivity: 20,
-    fastScrollModifier: 'shift',
-    allowTransparency: false,
-  });
-
-  fitAddon = new FitAddon.FitAddon();
-  term.loadAddon(fitAddon);
-  term.open($('termContainer'));
-  fitAddon.fit();
-
-  // xterm eats all touch events — intercept at capture phase before it does
-  setTimeout(() => {
-    const container = $('termContainer');
-    let touchStartY = 0;
-    let scrolling = false;
-
-    container.addEventListener('touchstart', e => {
-      touchStartY = e.touches[0].clientY;
-      scrolling = false;
-    }, { passive: true, capture: true });
-
-    container.addEventListener('touchmove', e => {
-      const viewport = container.querySelector('.xterm-viewport');
-      if (!viewport) return;
-      const dy = touchStartY - e.touches[0].clientY;
-      touchStartY = e.touches[0].clientY;
-      // Only scroll if there's actually scrollable content
-      if (Math.abs(dy) > 2) {
-        viewport.scrollTop += dy;
-        scrolling = true;
-      }
-    }, { passive: true, capture: true });
-  }, 100);
-
-  connectTermSocket();
-
-  term.onData(data => {
-    if (termSocket && termSocket.readyState === WebSocket.OPEN) {
-      termSocket.send(JSON.stringify({ type: 'input', data }));
-    }
-  });
-
-  window.addEventListener('resize', () => {
-    if (term && fitAddon) {
-      fitAddon.fit();
-      sendResize();
-    }
-  });
-}
-
-function connectTermSocket() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${proto}://${location.host}/terminal?repoPath=${encodeURIComponent(REPO || '')}`;
-  termSocket = new WebSocket(url);
-
-  termSocket.onopen = () => {
-    sendResize();
-    term.write('\r\n\x1b[32m# groove terminal\x1b[0m\r\n');
-  };
-
-  termSocket.onmessage = e => {
-    term.write(e.data);
-    checkTermOutputForDevServer(e.data);
-  };
-
-  termSocket.onclose = () => {
-    term.write('\r\n\x1b[33m[disconnected]\x1b[0m\r\n');
-    termReady = false;
-  };
-
-  termSocket.onerror = () => {
-    term.write('\r\n\x1b[31m[connection error]\x1b[0m\r\n');
-  };
-}
-
-function sendResize() {
-  if (termSocket && termSocket.readyState === WebSocket.OPEN && term) {
-    termSocket.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-  }
-}
-
-function clearTerm() {
-  if (term) term.clear();
-}
-
-function killTerm() {
-  if (termSocket && termSocket.readyState === WebSocket.OPEN) {
-    // Send Ctrl+C to stop any running process
-    termSocket.send(JSON.stringify({ type: 'input', data: '\x03' }));
-    setTimeout(() => {
-      termSocket.close();
-      termReady = false;
-      if (term) term.write('\r\n\x1b[33m[session killed — tap term tab to reconnect]\x1b[0m\r\n');
-    }, 200);
-  }
-}
-
-function toggleTerm() {
-  const panel = $('termPanel');
-  const nowHidden = panel.classList.toggle('hidden');
-  $('termToggleBtn').style.color = nowHidden ? '' : 'var(--green)';
-  if (!nowHidden) {
-    if (!termReady) initTerm();
-    else setTimeout(() => { fitAddon && fitAddon.fit(); sendResize(); }, 50);
-  }
-}
-
-// ─── Boot ────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  loadRepos();
-  $('repoPathInput').addEventListener('keydown', e => { if (e.key === 'Enter') connectRepo(); });
-  $('commitMsg').addEventListener('keydown', e => { if (e.key === 'Enter') doPush(); });
-  initMobile();
-  window.addEventListener('resize', initMobile);
-});
-</script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  }
 </script>
 </body>
 </html>
