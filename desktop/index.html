@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groove Companion</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="companion-card">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <span class="logo-icon">◎</span>
+        <div class="logo-text">
+          <span class="brand-name">Groove</span>
+          <span class="brand-sub">Companion</span>
+        </div>
+      </div>
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot"></span>
+        <span class="status-text" id="statusText">Starting...</span>
+      </div>
+    </header>
+
+    <!-- Mobile Pairing Section -->
+    <section class="pairing-section">
+      <div class="section-title">
+        <span class="icon">📱</span>
+        <span>Instant Mobile Pairing</span>
+      </div>
+
+      <div class="qr-container">
+        <div class="qr-box">
+          <img id="qrImage" alt="Pairing QR Code" />
+          <div class="qr-loading" id="qrLoading">Generating QR...</div>
+        </div>
+        <div class="qr-info">
+          <p class="qr-help">Scan with your phone or tablet camera on the same network to open Groove immediately.</p>
+          <div class="qr-network-picker">
+            <label for="networkSelect">Target Network:</label>
+            <select id="networkSelect"></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Network URLs -->
+    <section class="networks-section">
+      <div class="section-title">
+        <span class="icon">🌐</span>
+        <span>Access Addresses</span>
+      </div>
+      <div class="urls-list" id="urlsList">
+        <!-- Injected via renderer.js -->
+      </div>
+    </section>
+
+    <!-- Preferences & Controls -->
+    <section class="settings-section">
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-title">Auto-start on Boot</span>
+          <span class="setting-desc">Run Groove in background on PC login</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="autostartToggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row port-row">
+        <div class="setting-info">
+          <span class="setting-title">Server Port</span>
+        </div>
+        <div class="port-input-wrap">
+          <input type="number" id="portInput" value="9000" min="1024" max="65535" />
+          <button class="small-btn" id="savePortBtn">Set</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Actions Footer -->
+    <footer class="app-footer">
+      <button class="primary-btn" id="openBrowserBtn">
+        <span>Open in Browser</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </button>
+      <button class="secondary-btn" id="toggleServerBtn">Stop Server</button>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast hidden">Copied to clipboard!</div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

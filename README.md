@@ -22,9 +22,26 @@ A self-hosted, browser-based Git client with a built-in terminal. Run it on your
 ## Setup
 
 ```bash
-git clone https://github.com/cy-rus404/groove.git
-cd groove
+git clone https://github.com/elvisthebuilder/Groove.git
+cd Groove
 npm install
+```
+
+### Option A: Desktop Companion App (Recommended)
+Run Groove as a lightweight System Tray / Menu Bar app with instant Mobile QR Pairing and Auto-Start on boot:
+
+```bash
+npm run desktop
+```
+- Lives in your system tray / menu bar.
+- Auto-starts the server and restarts if needed.
+- Shows a scannable QR Code to pair your phone instantly.
+- Toggle "Auto-start on Boot" to keep your PC always accessible.
+
+### Option B: Headless Terminal Server
+Run directly in the console:
+
+```bash
 npm start
 ```
 
