@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "desktop": "electron desktop/main.js"
+    "desktop": "electron --no-sandbox desktop/main.js"
   },
   "dependencies": {
     "express": "^4.18.2",

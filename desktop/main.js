@@ -5,6 +5,12 @@ const fs = require('fs');
 const { fork } = require('child_process');
 const QRCode = require('qrcode');
 
+// Linux sandbox compatibility
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
+
 let tray = null;
 let mainWindow = null;
 let serverProcess = null;
