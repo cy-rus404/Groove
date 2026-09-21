@@ -57,6 +57,17 @@ function getNetworkInterfaces() {
   return addresses;
 }
 
+function killPort(port) {
+  try {
+    const { execSync } = require('child_process');
+    if (process.platform === 'win32') {
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { stdio: 'ignore' });
+    } else {
+      execSync(`lsof -ti :${port} | xargs -r kill -9`, { stdio: 'ignore' });
+    }
+  } catch (e) {}
+}
+
 function startServer(port = serverPort) {
   if (serverProcess) {
     return { success: true, port: serverPort, running: true };
@@ -64,6 +75,8 @@ function startServer(port = serverPort) {
 
   serverPort = port;
   autoRestart = true;
+  killPort(serverPort);
+
   const serverScript = path.resolve(__dirname, '..', 'server.js');
 
   serverProcess = fork(serverScript, [], {
@@ -89,7 +102,7 @@ function startServer(port = serverPort) {
     updateTrayMenu();
     notifyStatusChange();
 
-    if (autoRestart) {
+    if (autoRestart && code !== 0 && code !== 1) {
       console.log('[Groove Server] Restarting in 2s...');
       setTimeout(() => startServer(serverPort), 2000);
     }
