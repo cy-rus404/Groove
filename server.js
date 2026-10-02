@@ -70,6 +70,47 @@ app.get("/api/tailscale-ip", (req, res) => {
   res.json({ ip: tailscaleIP });
 });
 
+// Sync project files to a worker
+app.post("/api/worker-sync", async (req, res) => {
+  const { workerId, repoPath } = req.body;
+  try {
+    validateRepo(repoPath);
+    if (!workers.has(workerId)) return res.status(404).json({ error: 'Worker not found' });
+    const worker = workers.get(workerId);
+
+    let files;
+    if (isGitRepo(repoPath)) {
+      const out = await run('git ls-files', repoPath);
+      files = out.split('\n').filter(Boolean);
+    } else {
+      files = getFilesRecursive(repoPath);
+    }
+
+    const projectName = path.basename(repoPath);
+    const payload = [];
+    for (const f of files) {
+      const abs = path.join(repoPath, f);
+      try {
+        const stat = fs.statSync(abs);
+        if (stat.size > 2 * 1024 * 1024) continue;
+        payload.push({ path: f, content: fs.readFileSync(abs).toString('base64') });
+      } catch {}
+    }
+
+    // Wait for worker to confirm sync
+    const reply = await new Promise((resolve, reject) => {
+      worker.pendingSyncResolve = resolve;
+      worker.ws.send(JSON.stringify({ type: 'sync', projectName, files: payload }));
+      setTimeout(() => reject(new Error('Worker sync timed out')), 30000);
+    });
+
+    if (reply.type === 'sync-error') return res.status(500).json({ error: reply.error });
+    res.json({ success: true, fileCount: payload.length, projectName, destDir: reply.destDir });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
 // List connected workers
 app.get("/api/workers", (req, res) => {
   const list = [];
@@ -357,20 +398,42 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
+// Heartbeat: keep worker connections alive
+const WORKER_PING_INTERVAL = 20000;
+setInterval(() => {
+  for (const [id, worker] of workers.entries()) {
+    if (worker.ws.readyState === WebSocket.OPEN) {
+      worker.ws.ping();
+    } else {
+      workers.delete(id);
+    }
+  }
+}, WORKER_PING_INTERVAL);
+
 // Worker connection handler
 wssWorker.on("connection", (ws, req) => {
   const workerId = "worker-" + Math.random().toString(36).substring(2, 9);
   const hostname = req.headers["x-worker-hostname"] || "Remote Client";
-  const ip = req.socket.remoteAddress || "unknown";
+  const rawIp = req.socket.remoteAddress || "unknown";
+  // Normalize IPv6-mapped IPv4 (::ffff:127.0.0.1 -> 127.0.0.1)
+  const ip = rawIp.replace(/^::ffff:/, '');
 
   console.log(`[Worker] New companion connected: ${workerId} (${hostname} @ ${ip})`);
 
   const worker = { ws, hostname, ip, connectedAt: new Date().toISOString() };
   workers.set(workerId, worker);
 
+  ws.on("pong", () => { worker.lastPong = Date.now(); });
+
   ws.on("message", (raw) => {
     try {
       const msg = JSON.parse(raw);
+      // sync-ok / sync-error: relay to any waiting HTTP response
+      if (msg.type === 'sync-ok' || msg.type === 'sync-error') {
+        const pending = worker.pendingSyncResolve;
+        if (pending) { worker.pendingSyncResolve = null; pending(msg); }
+        return;
+      }
       if (msg.sessionId) {
         const session = ptySessions.get(msg.sessionId);
         if (session && session.isWorker && session.ws && session.ws.readyState === WebSocket.OPEN) {
@@ -410,7 +473,7 @@ wssTerminal.on("connection", (ws, req) => {
 
   let session = ptySessions.get(sessionId);
 
-  // If a worker target is specified and exists, route execution to PC2!
+  // If a worker target is specified and exists, route execution to worker
   if (targetWorker && workers.has(targetWorker) && (!session || session.isWorker)) {
     const worker = workers.get(targetWorker);
 
@@ -424,12 +487,12 @@ wssTerminal.on("connection", (ws, req) => {
       };
       ptySessions.set(sessionId, session);
 
-      // Tell worker to spawn local PTY on PC2
+      // Send worker's own homedir as cwd — the host path doesn't exist on the worker
       if (worker.ws.readyState === WebSocket.OPEN) {
         worker.ws.send(JSON.stringify({
           type: "spawn",
           sessionId,
-          cwd,
+          cwd: null, // worker will use its own homedir
           cols: 100,
           rows: 30
         }));

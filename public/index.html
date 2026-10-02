@@ -208,6 +208,7 @@
           <select id="termWorkerSelect" onchange="changeTermWorker()" style="font-size:10.5px;background:var(--bg-subtle);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:2px 6px;outline:none;" title="Execution Machine">
             <option value="">Host (Local)</option>
           </select>
+          <button id="syncRunBtn" class="editor-btn" onclick="syncAndRunOnWorker()" style="font-size:10px;padding:2px 8px;display:none;color:var(--green);border-color:rgba(63,185,80,0.4);" title="Sync project files to worker and open a terminal there">⇅ sync</button>
           <button class="editor-btn" onclick="addTerm()" style="font-size:14px;padding:0 6px;" title="New Terminal">＋</button>
           <button class="editor-btn" onclick="clearTerm()" style="font-size:10px;padding:2px 8px;">clear</button>
           <button class="editor-btn" id="termKillBtn" onclick="killTerm()" disabled style="font-size:10px;padding:2px 8px;border-color:rgba(248,81,73,0.4);color:var(--red);opacity:0.5;cursor:not-allowed;">✕ kill</button>

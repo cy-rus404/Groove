@@ -1880,7 +1880,7 @@ function saveTermSessions() {
   }
 }
 
-function addTerm(existingSessionId = null) {
+function addTerm(existingSessionId = null, forceWorkerId = null, startCwd = null) {
   const id = ++termCounter;
   const sessionId = existingSessionId || 'term_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   const session = { id, sessionId, ready: false, processRunning: false, term: null, socket: null, fitAddon: null, container: null };
@@ -1923,11 +1923,9 @@ function addTerm(existingSessionId = null) {
     });
     
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const targetWorker = $('termWorkerSelect') ? $('termWorkerSelect').value : '';
+    const targetWorker = forceWorkerId || ($('termWorkerSelect') ? $('termWorkerSelect').value : '');
     let url = `${proto}://${location.host}/terminal?repoPath=${encodeURIComponent(REPO || '')}&sessionId=${sessionId}`;
-    if (targetWorker) {
-      url += `&workerId=${encodeURIComponent(targetWorker)}`;
-    }
+    if (targetWorker) url += `&workerId=${encodeURIComponent(targetWorker)}`;
     const ws = new WebSocket(url);
     session.socket = ws;
     
@@ -1938,6 +1936,12 @@ function addTerm(existingSessionId = null) {
         t.write(`\r\n\x1b[32m# groove terminal${targetLabel}\x1b[0m\r\n`);
       } else {
         t.write(`\r\n\x1b[34m# groove terminal (restored)${targetLabel}\x1b[0m\r\n`);
+      }
+      // If we have a synced project dir, cd into it automatically
+      if (startCwd && targetWorker) {
+        setTimeout(() => {
+          ws.send(JSON.stringify({ type: 'input', data: `cd ${JSON.stringify(startCwd)} && clear\n` }));
+        }, 300);
       }
       session.ready = true;
       updateTermUI();
@@ -2082,6 +2086,43 @@ function changeTermWorker() {
   if (!sel) return;
   const target = sel.value ? `Worker (${sel.options[sel.selectedIndex].text})` : 'Host (Local)';
   showToast(`Terminal target set to: ${target}`);
+  const syncBtn = $('syncRunBtn');
+  if (syncBtn) syncBtn.style.display = sel.value ? 'inline-flex' : 'none';
+}
+
+async function syncAndRunOnWorker() {
+  const sel = $('termWorkerSelect');
+  if (!sel || !sel.value) return;
+  if (!REPO) { showToast('No project open', 'error'); return; }
+
+  const workerId = sel.value;
+  const workerName = sel.options[sel.selectedIndex].text;
+  const btn = $('syncRunBtn');
+
+  btn.disabled = true;
+  btn.textContent = '⟳ syncing...';
+  showToast(`Syncing to ${workerName}...`);
+
+  try {
+    const res = await fetch('/api/worker-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workerId, repoPath: REPO })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+
+    showToast(`Synced ${d.fileCount} files → ${workerName}. Opening terminal...`);
+
+    // Open a new terminal tab routed to the worker
+    // The worker will cd into the synced project dir automatically via the shell
+    addTerm(null, workerId, d.destDir);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⇅ sync';
+  }
 }
 
 setInterval(loadConnectedWorkers, 5000);

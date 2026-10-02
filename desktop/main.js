@@ -28,6 +28,9 @@ let workerPtySessions = new Map(); // local PTY sessions for worker mode
 let workerAutoConnect = false;
 let workerHostUrl = '';
 
+// Local worker: this Electron app registers itself as a worker on the hosted server
+let localWorkerWs = null;
+
 // Settings
 let runInBackground = true; // default: minimize to tray on close
 
@@ -116,12 +119,17 @@ function startServer(port = serverPort) {
     isServerRunning = false;
     updateTrayMenu();
     notifyStatusChange();
+    // Disconnect local worker when server stops
+    if (localWorkerWs) { localWorkerWs.terminate(); localWorkerWs = null; }
 
     if (autoRestart && code !== 0 && code !== 1) {
       console.log('[Groove Server] Restarting in 2s...');
       setTimeout(() => startServer(serverPort), 2000);
     }
   });
+
+  // Connect this Electron app as a local worker so it appears in the workers list
+  setTimeout(() => connectLocalWorker(serverPort), 1500);
 
   notifyStatusChange();
   return { success: true, port: serverPort, running: true };
@@ -147,6 +155,38 @@ function notifyStatusChange() {
       networks: getNetworkInterfaces()
     });
   }
+}
+
+// ─── Local Worker Self-Registration ─────────────────────
+// Registers this Electron host as a worker on its own server so it appears
+// in the terminal worker dropdown in the browser UI.
+function connectLocalWorker(port) {
+  if (localWorkerWs) { localWorkerWs.terminate(); localWorkerWs = null; }
+  const wsUrl = `ws://127.0.0.1:${port}/worker`;
+  try {
+    localWorkerWs = new WebSocket(wsUrl, {
+      headers: { 'x-groove-worker': '1', 'x-worker-hostname': os.hostname() + ' (host)' }
+    });
+  } catch { return; }
+
+  localWorkerWs.on('message', (raw) => {
+    try { handleWorkerMessage(JSON.parse(raw), localWorkerWs); } catch {}
+  });
+
+  localWorkerWs.on('ping', () => {
+    if (localWorkerWs) localWorkerWs.pong();
+  });
+
+  localWorkerWs.on('close', () => {
+    localWorkerWs = null;
+    // Reconnect if server is still running
+    if (isServerRunning) setTimeout(() => connectLocalWorker(port), 3000);
+  });
+
+  localWorkerWs.on('error', () => {
+    if (localWorkerWs) { localWorkerWs.terminate(); localWorkerWs = null; }
+    if (isServerRunning) setTimeout(() => connectLocalWorker(port), 3000);
+  });
 }
 
 // ─── Worker Mode ─────────────────────────────────────────
@@ -217,8 +257,28 @@ function connectWorker(hostUrl) {
   });
 }
 
-function handleWorkerMessage(msg) {
+function handleWorkerMessage(msg, replyWs = workerWs) {
   if (!pty) return;
+
+  if (msg.type === 'sync') {
+    // Host is pushing project files — write them to a local temp dir
+    const { projectName, files } = msg;
+    const destDir = path.join(os.tmpdir(), 'groove-worker', projectName);
+    try {
+      fs.mkdirSync(destDir, { recursive: true });
+      for (const f of files) {
+        const abs = path.join(destDir, f.path);
+        fs.mkdirSync(path.dirname(abs), { recursive: true });
+        fs.writeFileSync(abs, Buffer.from(f.content, 'base64'));
+      }
+      console.log(`[Worker] Synced ${files.length} files to ${destDir}`);
+      sendToHost({ type: 'sync-ok', projectName, destDir }, replyWs);
+    } catch (err) {
+      console.error('[Worker] Sync failed:', err.message);
+      sendToHost({ type: 'sync-error', error: err.message }, replyWs);
+    }
+    return;
+  }
 
   if (msg.type === 'spawn') {
     // Host wants to spawn a terminal session on this worker
@@ -242,23 +302,23 @@ function handleWorkerMessage(msg) {
         env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' }
       });
     } catch (err) {
-      sendToHost({ type: 'spawn-error', sessionId, error: err.message });
+      sendToHost({ type: 'spawn-error', sessionId, error: err.message }, replyWs);
       return;
     }
 
-    const session = { pty: ptyProcess };
+    const session = { pty: ptyProcess, replyWs };
     workerPtySessions.set(sessionId, session);
 
     ptyProcess.onData(data => {
-      sendToHost({ type: 'output', sessionId, data });
+      sendToHost({ type: 'output', sessionId, data }, session.replyWs);
     });
 
     ptyProcess.onExit(() => {
       workerPtySessions.delete(sessionId);
-      sendToHost({ type: 'exit', sessionId });
+      sendToHost({ type: 'exit', sessionId }, session.replyWs);
     });
 
-    sendToHost({ type: 'spawn-ok', sessionId });
+    sendToHost({ type: 'spawn-ok', sessionId }, replyWs);
 
   } else if (msg.type === 'input') {
     const session = workerPtySessions.get(msg.sessionId);
@@ -277,9 +337,9 @@ function handleWorkerMessage(msg) {
   }
 }
 
-function sendToHost(msg) {
-  if (workerWs && workerWs.readyState === WebSocket.OPEN) {
-    workerWs.send(JSON.stringify(msg));
+function sendToHost(msg, ws = workerWs) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
   }
 }
 
@@ -627,4 +687,5 @@ app.on('before-quit', () => {
   autoRestart = false;
   if (serverProcess) serverProcess.kill();
   if (workerWs) workerWs.terminate();
+  if (localWorkerWs) localWorkerWs.terminate();
 });
