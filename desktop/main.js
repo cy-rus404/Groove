@@ -1,22 +1,35 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage, screen } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { fork } = require('child_process');
+const WebSocket = require('ws');
 const QRCode = require('qrcode');
 
-// Linux sandbox compatibility
+// ─── Linux sandbox compatibility ─────────────────────────
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
 }
 
+// ─── App State ───────────────────────────────────────────
 let tray = null;
 let mainWindow = null;
 let serverProcess = null;
 let serverPort = 9000;
 let isServerRunning = false;
 let autoRestart = true;
+
+// Worker state (when this companion connects to a remote Groove host)
+let workerWs = null;
+let workerStatus = { connected: false, hostUrl: '', error: null };
+let workerReconnectTimer = null;
+let workerPtySessions = new Map(); // local PTY sessions for worker mode
+let workerAutoConnect = false;
+let workerHostUrl = '';
+
+// Settings
+let runInBackground = true; // default: minimize to tray on close
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -32,6 +45,7 @@ if (!gotTheLock) {
   });
 }
 
+// ─── Network Helpers ─────────────────────────────────────
 function getNetworkInterfaces() {
   const interfaces = os.networkInterfaces();
   const addresses = {
@@ -68,6 +82,7 @@ function killPort(port) {
   } catch (e) {}
 }
 
+// ─── Host Server Management ──────────────────────────────
 function startServer(port = serverPort) {
   if (serverProcess) {
     return { success: true, port: serverPort, running: true };
@@ -134,21 +149,178 @@ function notifyStatusChange() {
   }
 }
 
-function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-active.png');
-  let icon = nativeImage.createFromPath(iconPath);
-  if (icon.isEmpty()) {
-    // Fallback if image not found
-    icon = nativeImage.createEmpty();
+// ─── Worker Mode ─────────────────────────────────────────
+// PC2 companion connects to PC1's Groove server as a "worker"
+// All terminal sessions routed to this worker run locally on PC2
+
+const pty = (() => {
+  try { return require('node-pty'); } catch { return null; }
+})();
+
+function connectWorker(hostUrl) {
+  if (workerWs) {
+    workerWs.terminate();
+    workerWs = null;
   }
+  clearTimeout(workerReconnectTimer);
+
+  const wsUrl = hostUrl.replace(/^http/, 'ws') + '/worker';
+  console.log(`[Worker] Connecting to ${wsUrl}`);
+
+  workerStatus = { connected: false, hostUrl, error: null };
+  notifyWorkerStatus();
+
+  try {
+    workerWs = new WebSocket(wsUrl, {
+      headers: { 'x-groove-worker': '1', 'x-worker-hostname': os.hostname() }
+    });
+  } catch (err) {
+    workerStatus = { connected: false, hostUrl, error: err.message };
+    notifyWorkerStatus();
+    scheduleWorkerReconnect(hostUrl);
+    return;
+  }
+
+  workerWs.on('open', () => {
+    console.log('[Worker] Connected to Groove host');
+    workerStatus = { connected: true, hostUrl, error: null };
+    notifyWorkerStatus();
+    updateTrayMenu();
+  });
+
+  workerWs.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+      handleWorkerMessage(msg);
+    } catch (e) {
+      console.error('[Worker] Bad message:', e.message);
+    }
+  });
+
+  workerWs.on('close', () => {
+    console.log('[Worker] Disconnected from host');
+    workerStatus = { connected: false, hostUrl, error: 'Disconnected' };
+    notifyWorkerStatus();
+    updateTrayMenu();
+    // Kill all local PTY sessions
+    for (const [id, session] of workerPtySessions) {
+      try { session.pty.kill(); } catch {}
+    }
+    workerPtySessions.clear();
+    if (workerAutoConnect) scheduleWorkerReconnect(hostUrl);
+  });
+
+  workerWs.on('error', (err) => {
+    console.error('[Worker] Error:', err.message);
+    workerStatus = { connected: false, hostUrl, error: err.message };
+    notifyWorkerStatus();
+  });
+}
+
+function handleWorkerMessage(msg) {
+  if (!pty) return;
+
+  if (msg.type === 'spawn') {
+    // Host wants to spawn a terminal session on this worker
+    const { sessionId, cwd, cols, rows } = msg;
+    if (workerPtySessions.has(sessionId)) return;
+
+    const shellCandidates = [process.env.SHELL, '/bin/zsh', '/bin/bash', '/bin/sh'].filter(Boolean);
+    const shell = shellCandidates.find(s => {
+      try { return fs.existsSync(s) && fs.statSync(s).isFile(); } catch { return false; }
+    }) || '/bin/sh';
+
+    const safeCwd = (cwd && fs.existsSync(cwd)) ? cwd : os.homedir();
+
+    let ptyProcess;
+    try {
+      ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols: cols || 100,
+        rows: rows || 30,
+        cwd: safeCwd,
+        env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' }
+      });
+    } catch (err) {
+      sendToHost({ type: 'spawn-error', sessionId, error: err.message });
+      return;
+    }
+
+    const session = { pty: ptyProcess };
+    workerPtySessions.set(sessionId, session);
+
+    ptyProcess.onData(data => {
+      sendToHost({ type: 'output', sessionId, data });
+    });
+
+    ptyProcess.onExit(() => {
+      workerPtySessions.delete(sessionId);
+      sendToHost({ type: 'exit', sessionId });
+    });
+
+    sendToHost({ type: 'spawn-ok', sessionId });
+
+  } else if (msg.type === 'input') {
+    const session = workerPtySessions.get(msg.sessionId);
+    if (session) session.pty.write(msg.data);
+
+  } else if (msg.type === 'resize') {
+    const session = workerPtySessions.get(msg.sessionId);
+    if (session) session.pty.resize(msg.cols, msg.rows);
+
+  } else if (msg.type === 'kill') {
+    const session = workerPtySessions.get(msg.sessionId);
+    if (session) {
+      try { session.pty.kill(); } catch {}
+      workerPtySessions.delete(msg.sessionId);
+    }
+  }
+}
+
+function sendToHost(msg) {
+  if (workerWs && workerWs.readyState === WebSocket.OPEN) {
+    workerWs.send(JSON.stringify(msg));
+  }
+}
+
+function disconnectWorker() {
+  clearTimeout(workerReconnectTimer);
+  workerAutoConnect = false;
+  if (workerWs) {
+    workerWs.terminate();
+    workerWs = null;
+  }
+  for (const [id, session] of workerPtySessions) {
+    try { session.pty.kill(); } catch {}
+  }
+  workerPtySessions.clear();
+  workerStatus = { connected: false, hostUrl: workerStatus.hostUrl, error: null };
+  notifyWorkerStatus();
+  updateTrayMenu();
+}
+
+function scheduleWorkerReconnect(hostUrl) {
+  clearTimeout(workerReconnectTimer);
+  workerReconnectTimer = setTimeout(() => {
+    if (workerAutoConnect) connectWorker(hostUrl);
+  }, 5000);
+}
+
+function notifyWorkerStatus() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('worker-status-changed', workerStatus);
+  }
+}
+
+// ─── Tray ────────────────────────────────────────────────
+function createTray() {
+  const iconPath = path.join(__dirname, 'assets', isServerRunning ? 'tray-active.png' : 'tray-inactive.png');
+  let icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty()) icon = nativeImage.createEmpty();
 
   tray = new Tray(icon);
   tray.setToolTip('Groove — Code Anywhere Companion');
-
-  tray.on('click', () => {
-    toggleWindow();
-  });
-
+  tray.on('click', () => toggleWindow());
   updateTrayMenu();
 }
 
@@ -158,14 +330,21 @@ function updateTrayMenu() {
   const networks = getNetworkInterfaces();
   const primaryUrl = networks.tailscale || networks.lan || networks.localhost;
 
+  const workerLabel = workerStatus.connected
+    ? `🔗 Worker: Connected to ${workerStatus.hostUrl}`
+    : (workerAutoConnect ? '🔄 Worker: Reconnecting...' : '⬡ Worker: Disconnected');
+
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: isServerRunning ? `🟢 Groove Active (Port ${serverPort})` : '🔴 Groove Server Stopped',
+      label: isServerRunning
+        ? `🟢 Groove Host Active  (Port ${serverPort})`
+        : '🔴 Groove Host Stopped',
       enabled: false
     },
+    { label: workerLabel, enabled: false },
     { type: 'separator' },
     {
-      label: '📱 Show Mobile Pairing & Info',
+      label: '🖥 Show Companion',
       click: () => showWindow()
     },
     {
@@ -175,16 +354,13 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: isServerRunning ? '⏹️ Stop Server' : '▶️ Start Server',
+      label: isServerRunning ? '⏹ Stop Host Server' : '▶ Start Host Server',
       click: () => (isServerRunning ? stopServer() : startServer(serverPort))
     },
     {
-      label: '🔄 Restart Server',
+      label: '🔄 Restart Host Server',
       enabled: isServerRunning,
-      click: () => {
-        stopServer();
-        setTimeout(() => startServer(serverPort), 500);
-      }
+      click: () => { stopServer(); setTimeout(() => startServer(serverPort), 500); }
     },
     { type: 'separator' },
     {
@@ -199,20 +375,30 @@ function updateTrayMenu() {
   ]);
 
   tray.setContextMenu(contextMenu);
+
+  // Update tray icon based on state
+  try {
+    const iconName = isServerRunning ? 'tray-active.png' : 'tray-inactive.png';
+    const newIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', iconName));
+    if (!newIcon.isEmpty()) tray.setImage(newIcon);
+  } catch {}
 }
 
+// ─── Window Management ───────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 440,
-    height: 610,
+    width: 860,
+    height: 570,
+    minWidth: 800,
+    minHeight: 520,
     show: false,
     frame: false,
-    resizable: false,
+    resizable: true,
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: false,
     icon: path.join(__dirname, 'assets', 'icon.png'),
-    backgroundColor: '#0d1117',
+    backgroundColor: '#0d0d0d',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -222,34 +408,47 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
+  mainWindow.once('ready-to-show', () => {
+    showWindow();
+  });
+
   mainWindow.on('close', (e) => {
     if (!app.isQuitting) {
-      e.preventDefault();
-      mainWindow.hide();
+      if (runInBackground) {
+        // Minimize to tray instead of closing
+        e.preventDefault();
+        mainWindow.hide();
+        if (tray && !mainWindow._trayHinted) {
+          mainWindow._trayHinted = true;
+          tray.setToolTip('Groove is running in the background. Click tray icon to reopen.');
+        }
+      }
     }
   });
 }
 
 function getWindowPosition() {
-  const windowBounds = mainWindow.getBounds();
-  const trayBounds = tray ? tray.getBounds() : { x: 0, y: 0, width: 0, height: 0 };
+  if (!mainWindow) return null;
 
-  // Center horizontally or near tray icon
+  const trayBounds = tray ? tray.getBounds() : null;
+  // If tray bounds are invalid or zero (common on Linux desktop environments)
+  if (!trayBounds || (trayBounds.x === 0 && trayBounds.y === 0 && trayBounds.width === 0)) {
+    return null; // Signals center()
+  }
+
+  const windowBounds = mainWindow.getBounds();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
   let x = Math.round(trayBounds.x + (trayBounds.width / 2) - (windowBounds.width / 2));
   let y = Math.round(trayBounds.y + trayBounds.height + 4);
 
-  // If tray is at bottom (Windows / some Linux)
-  const primaryDisplay = require('electron').screen.getPrimaryDisplay();
-  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
-
-  if (x + windowBounds.width > screenWidth) {
-    x = screenWidth - windowBounds.width - 12;
-  }
-  if (x < 12) x = 12;
-
+  // Flip above tray if not enough room below
   if (y + windowBounds.height > screenHeight) {
     y = trayBounds.y - windowBounds.height - 4;
   }
+  if (x + windowBounds.width > screenWidth) x = screenWidth - windowBounds.width - 12;
+  if (x < 12) x = 12;
   if (y < 12) y = 12;
 
   return { x, y };
@@ -258,7 +457,11 @@ function getWindowPosition() {
 function showWindow() {
   if (!mainWindow) return;
   const position = getWindowPosition();
-  mainWindow.setPosition(position.x, position.y, false);
+  if (position) {
+    mainWindow.setPosition(position.x, position.y, false);
+  } else {
+    mainWindow.center();
+  }
   mainWindow.show();
   mainWindow.focus();
 }
@@ -272,21 +475,19 @@ function toggleWindow() {
   }
 }
 
-// ─── Linux Autostart Helpers ──────────────────────────────
+// ─── Linux Autostart ─────────────────────────────────────
 const autostartDir = path.join(os.homedir(), '.config', 'autostart');
-const autostartDesktopFile = path.join(autostartDir, 'groove.desktop');
+const autostartFile = path.join(autostartDir, 'groove.desktop');
 
 function getLinuxAutostart() {
-  return fs.existsSync(autostartDesktopFile);
+  return fs.existsSync(autostartFile);
 }
 
 function setLinuxAutostart(enable) {
   try {
     if (enable) {
-      if (!fs.existsSync(autostartDir)) {
-        fs.mkdirSync(autostartDir, { recursive: true });
-      }
-      const desktopContent = `[Desktop Entry]
+      if (!fs.existsSync(autostartDir)) fs.mkdirSync(autostartDir, { recursive: true });
+      fs.writeFileSync(autostartFile, `[Desktop Entry]
 Type=Application
 Version=1.0
 Name=Groove Companion
@@ -295,91 +496,135 @@ Exec="${process.execPath}" "${path.resolve(__dirname, 'main.js')}"
 Icon=${path.join(__dirname, 'assets', 'icon.png')}
 Terminal=false
 Categories=Development;
-`;
-      fs.writeFileSync(autostartDesktopFile, desktopContent, 'utf8');
+`, 'utf8');
     } else {
-      if (fs.existsSync(autostartDesktopFile)) {
-        fs.unlinkSync(autostartDesktopFile);
-      }
+      if (fs.existsSync(autostartFile)) fs.unlinkSync(autostartFile);
     }
     return true;
   } catch (err) {
-    console.error('Failed to set Linux autostart:', err);
+    console.error('Failed to set autostart:', err);
     return false;
   }
 }
 
-// ─── IPC Handlers ─────────────────────────────────────────
+// ─── Settings Persistence ────────────────────────────────
+const settingsFile = path.join(os.homedir(), '.groove-companion-settings.json');
+
+function loadSettings() {
+  try {
+    const raw = fs.readFileSync(settingsFile, 'utf8');
+    const s = JSON.parse(raw);
+    if (typeof s.runInBackground === 'boolean') runInBackground = s.runInBackground;
+    if (typeof s.serverPort === 'number') serverPort = s.serverPort;
+    if (typeof s.workerHostUrl === 'string') workerHostUrl = s.workerHostUrl;
+    if (typeof s.workerAutoConnect === 'boolean') workerAutoConnect = s.workerAutoConnect;
+  } catch {}
+}
+
+function saveSettings(patch = {}) {
+  try {
+    let current = {};
+    try { current = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch {}
+    const merged = { ...current, ...patch };
+    fs.writeFileSync(settingsFile, JSON.stringify(merged, null, 2), 'utf8');
+  } catch {}
+}
+
+// ─── IPC Handlers ────────────────────────────────────────
+
+// Host mode
 ipcMain.handle('get-server-status', () => ({
   running: isServerRunning,
   port: serverPort,
   networks: getNetworkInterfaces()
 }));
-
 ipcMain.handle('start-server', (_e, port) => startServer(port || serverPort));
 ipcMain.handle('stop-server', () => stopServer());
 ipcMain.handle('restart-server', (_e, port) => {
   stopServer();
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(startServer(port || serverPort)), 600);
-  });
+  return new Promise(resolve => setTimeout(() => resolve(startServer(port || serverPort)), 600));
 });
-
 ipcMain.handle('get-network-info', () => getNetworkInterfaces());
 
+// Worker mode
+ipcMain.handle('get-worker-status', () => workerStatus);
+ipcMain.handle('connect-worker', (_e, hostUrl) => {
+  workerAutoConnect = true;
+  workerHostUrl = hostUrl;
+  saveSettings({ workerHostUrl, workerAutoConnect });
+  connectWorker(hostUrl);
+  return { ok: true };
+});
+ipcMain.handle('disconnect-worker', () => {
+  disconnectWorker();
+  saveSettings({ workerAutoConnect: false });
+  return { ok: true };
+});
+
+// Settings
+ipcMain.handle('get-settings', () => ({
+  runInBackground,
+  serverPort,
+  workerHostUrl,
+  workerAutoConnect
+}));
+
+ipcMain.handle('set-run-in-background', (_e, val) => {
+  runInBackground = !!val;
+  saveSettings({ runInBackground });
+  return true;
+});
+
 ipcMain.handle('get-autostart', () => {
-  if (process.platform === 'linux') {
-    return getLinuxAutostart();
-  }
-  const settings = app.getLoginItemSettings();
-  return settings.openAtLogin;
+  if (process.platform === 'linux') return getLinuxAutostart();
+  return app.getLoginItemSettings().openAtLogin;
 });
 
 ipcMain.handle('set-autostart', (_e, enable) => {
-  if (process.platform === 'linux') {
-    return setLinuxAutostart(enable);
+  if (process.platform === 'linux') return setLinuxAutostart(enable);
+  app.setLoginItemSettings({ openAtLogin: enable, openAsHidden: true });
+  return true;
+});
+
+// Misc
+ipcMain.handle('open-browser', (_e, url) => { if (url) shell.openExternal(url); return true; });
+ipcMain.handle('hide-window', () => mainWindow && mainWindow.hide());
+ipcMain.handle('close-window', () => {
+  if (mainWindow) {
+    if (runInBackground) {
+      mainWindow.hide();
+    } else {
+      mainWindow.close();
+    }
   }
-  app.setLoginItemSettings({
-    openAtLogin: enable,
-    openAsHidden: true
-  });
   return true;
 });
-
-ipcMain.handle('open-browser', (_e, url) => {
-  if (url) shell.openExternal(url);
-  return true;
-});
-
 ipcMain.handle('generate-qr', async (_e, text) => {
   try {
-    return await QRCode.toDataURL(text, {
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      },
-      width: 160
-    });
-  } catch (err) {
-    console.error('QR code generation failed:', err);
-    return null;
-  }
+    return await QRCode.toDataURL(text, { margin: 1, color: { dark: '#000000', light: '#ffffff' }, width: 280 });
+  } catch { return null; }
 });
 
-// App Lifecycle
+// ─── App Lifecycle ───────────────────────────────────────
 app.whenReady().then(() => {
+  loadSettings();
   createTray();
   createWindow();
-  startServer();
+  startServer(serverPort);
+
+  // Auto-connect worker if configured
+  if (workerAutoConnect && workerHostUrl) {
+    setTimeout(() => connectWorker(workerHostUrl), 2000);
+  }
 });
 
 app.on('window-all-closed', (e) => {
-  // Do not quit when windows close; keep running in tray
+  // Never quit from window close — stay in tray
   e.preventDefault();
 });
 
 app.on('before-quit', () => {
   autoRestart = false;
   if (serverProcess) serverProcess.kill();
+  if (workerWs) workerWs.terminate();
 });

@@ -1923,16 +1923,21 @@ function addTerm(existingSessionId = null) {
     });
     
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${location.host}/terminal?repoPath=${encodeURIComponent(REPO || '')}&sessionId=${sessionId}`;
+    const targetWorker = $('termWorkerSelect') ? $('termWorkerSelect').value : '';
+    let url = `${proto}://${location.host}/terminal?repoPath=${encodeURIComponent(REPO || '')}&sessionId=${sessionId}`;
+    if (targetWorker) {
+      url += `&workerId=${encodeURIComponent(targetWorker)}`;
+    }
     const ws = new WebSocket(url);
     session.socket = ws;
     
     ws.onopen = () => {
       fit.fit();
+      const targetLabel = targetWorker ? ` (Worker: ${targetWorker})` : '';
       if (!existingSessionId) {
-        t.write('\r\n\x1b[32m# groove terminal\x1b[0m\r\n');
+        t.write(`\r\n\x1b[32m# groove terminal${targetLabel}\x1b[0m\r\n`);
       } else {
-        t.write('\r\n\x1b[34m# groove terminal (restored)\x1b[0m\r\n');
+        t.write(`\r\n\x1b[34m# groove terminal (restored)${targetLabel}\x1b[0m\r\n`);
       }
       session.ready = true;
       updateTermUI();
@@ -2049,6 +2054,38 @@ function killTerm() {
     s.socket.send(JSON.stringify({ type: 'input', data: '\x03' }));
   }
 }
+
+async function loadConnectedWorkers() {
+  const sel = $('termWorkerSelect');
+  if (!sel) return;
+  try {
+    const res = await fetch('/api/workers');
+    const data = await res.json();
+    const workers = data.workers || [];
+    const currentVal = sel.value;
+
+    let html = '<option value="">Host (Local)</option>';
+    workers.forEach(w => {
+      html += `<option value="${esc(w.id)}">Worker: ${esc(w.hostname)}</option>`;
+    });
+    sel.innerHTML = html;
+
+    // Restore selected value if still available
+    if (currentVal && workers.some(w => w.id === currentVal)) {
+      sel.value = currentVal;
+    }
+  } catch (e) {}
+}
+
+function changeTermWorker() {
+  const sel = $('termWorkerSelect');
+  if (!sel) return;
+  const target = sel.value ? `Worker (${sel.options[sel.selectedIndex].text})` : 'Host (Local)';
+  showToast(`Terminal target set to: ${target}`);
+}
+
+setInterval(loadConnectedWorkers, 5000);
+window.addEventListener('DOMContentLoaded', loadConnectedWorkers);
 
 function toggleTerm(forceState) {
   if (isMobile()) {
