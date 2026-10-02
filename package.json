@@ -7,7 +7,8 @@
     "url": "https://github.com/elvisthebuilder/Groove.git"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "desktop": "electron --no-sandbox desktop/main.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -15,6 +16,8 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@ljharb/tsconfig": "^0.3.2"
+    "@ljharb/tsconfig": "^0.3.2",
+    "electron": "^44.4.3",
+    "qrcode": "^1.5.4"
   }
 }

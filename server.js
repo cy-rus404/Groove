@@ -8,7 +8,7 @@ const WebSocket = require("ws");
 const pty = require("node-pty");
 
 const app = express();
-const PORT = 9000;
+const PORT = process.env.PORT || 9000;
 
 app.use(express.json());
 
@@ -55,6 +55,7 @@ function getFilesRecursive(dir, base = dir) {
   return results;
 }
 
+// ─── API Routes ──────────────────────────────────────────
 
 app.get("/api/tailscale-ip", (req, res) => {
   const interfaces = os.networkInterfaces();
@@ -67,6 +68,20 @@ app.get("/api/tailscale-ip", (req, res) => {
     }
   }
   res.json({ ip: tailscaleIP });
+});
+
+// List connected workers
+app.get("/api/workers", (req, res) => {
+  const list = [];
+  for (const [id, worker] of workers.entries()) {
+    list.push({
+      id,
+      hostname: worker.hostname,
+      ip: worker.ip,
+      connectedAt: worker.connectedAt
+    });
+  }
+  res.json({ workers: list });
 });
 
 app.get("/api/repo-info", async (req, res) => {
@@ -121,15 +136,12 @@ app.get("/api/repos", async (req, res) => {
 
     let args;
     if (search) {
-      // Search for folders matching name, max 3 levels deep
       args = [...searchDirs, '-maxdepth', '3', '-type', 'd', '-iname', `*${search}*`];
     } else {
-      // Existing behavior: find .git folders (but we can expand this)
       args = [...searchDirs, '-maxdepth', '3', '-name', '.git', '-type', 'd', '-prune'];
     }
 
     const child = spawn('find', args, { stdio: ['ignore', 'pipe', 'ignore'] });
-
     const repos = [];
     const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
 
@@ -150,7 +162,6 @@ app.get("/api/repos", async (req, res) => {
     res.status(500).json({ error: String(e.message || e) });
   }
 });
-
 
 app.get("/api/status", async (req, res) => {
   const { repoPath } = req.query;
@@ -234,22 +245,19 @@ app.get("/api/file-tree", async (req, res) => {
   }
 });
 
-
 app.get("/api/file-read", async (req, res) => {
   const { repoPath, file } = req.query;
-  console.log(`[file-read] repoPath=${repoPath} file=${JSON.stringify(file)}`);
   try {
     validateRepo(repoPath);
     if (!file) return res.status(400).json({ error: "No file specified" });
     const abs = path.resolve(repoPath, file);
-    // Prevent path traversal outside the repo
     if (!abs.startsWith(path.resolve(repoPath))) {
       return res.status(403).json({ error: "Access denied" });
     }
     if (!fs.existsSync(abs)) return res.status(404).json({ error: `File not found: ${abs}` });
     const stat = fs.statSync(abs);
     if (stat.isDirectory()) {
-      return res.status(400).json({ error: "Cannot edit a directory (submodule?)" });
+      return res.status(400).json({ error: "Cannot edit a directory" });
     }
     if (stat.size > 2 * 1024 * 1024) {
       return res.status(400).json({ error: "File too large to edit (>2MB)" });
@@ -267,7 +275,6 @@ app.get("/api/file-raw", (req, res) => {
     validateRepo(repoPath);
     if (!file) return res.status(400).send("No file specified");
     const abs = path.resolve(repoPath, file);
-    // Prevent path traversal outside the repo
     if (!abs.startsWith(path.resolve(repoPath))) {
       return res.status(403).send("Access denied");
     }
@@ -289,7 +296,6 @@ app.post("/api/file-write", async (req, res) => {
     if (!file) return res.status(400).json({ error: "No file specified" });
     if (content === undefined) return res.status(400).json({ error: "No content provided" });
     const abs = path.resolve(repoPath, file);
-    // Prevent path traversal outside the repo
     if (!abs.startsWith(path.resolve(repoPath))) {
       return res.status(403).json({ error: "Access denied" });
     }
@@ -324,16 +330,78 @@ app.get("/api/browse", async (req, res) => {
 app.use(express.static("public"));
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server, path: "/terminal" });
 
-// Global map to persist terminal sessions across browser refreshes
+// ─── WebSocket & Worker Management ───────────────────────
+
+const wssTerminal = new WebSocket.Server({ noServer: true });
+const wssWorker = new WebSocket.Server({ noServer: true });
+
+// Registered workers: workerId -> { ws, hostname, ip, connectedAt }
+const workers = new Map();
+// Active terminal sessions (local or proxied)
 const ptySessions = new Map();
 
-wss.on("connection", (ws, req) => {
+server.on("upgrade", (req, socket, head) => {
+  const pathname = new URL(req.url, "http://localhost").pathname;
+
+  if (pathname === "/terminal") {
+    wssTerminal.handleUpgrade(req, socket, head, (ws) => {
+      wssTerminal.emit("connection", ws, req);
+    });
+  } else if (pathname === "/worker") {
+    wssWorker.handleUpgrade(req, socket, head, (ws) => {
+      wssWorker.emit("connection", ws, req);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+// Worker connection handler
+wssWorker.on("connection", (ws, req) => {
+  const workerId = "worker-" + Math.random().toString(36).substring(2, 9);
+  const hostname = req.headers["x-worker-hostname"] || "Remote Client";
+  const ip = req.socket.remoteAddress || "unknown";
+
+  console.log(`[Worker] New companion connected: ${workerId} (${hostname} @ ${ip})`);
+
+  const worker = { ws, hostname, ip, connectedAt: new Date().toISOString() };
+  workers.set(workerId, worker);
+
+  ws.on("message", (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+      if (msg.sessionId) {
+        const session = ptySessions.get(msg.sessionId);
+        if (session && session.isWorker && session.ws && session.ws.readyState === WebSocket.OPEN) {
+          if (msg.type === "output" && msg.data) {
+            session.log.push(msg.data);
+            if (session.log.length > 200) session.log.shift();
+            session.ws.send(msg.data);
+          } else if (msg.type === "exit") {
+            session.ws.close();
+            ptySessions.delete(msg.sessionId);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[Worker] Parse error:", e.message);
+    }
+  });
+
+  ws.on("close", () => {
+    console.log(`[Worker] Disconnected: ${workerId}`);
+    workers.delete(workerId);
+  });
+});
+
+// Browser terminal connection handler
+wssTerminal.on("connection", (ws, req) => {
   const params = new URL(req.url, "http://localhost").searchParams;
   const repoPath = params.get("repoPath") || os.homedir();
   const cwd = fs.existsSync(repoPath) ? repoPath : os.homedir();
   const sessionId = params.get("sessionId");
+  const targetWorker = params.get("workerId"); // If specified, route terminal to PC2
 
   if (!sessionId) {
     ws.close();
@@ -342,8 +410,60 @@ wss.on("connection", (ws, req) => {
 
   let session = ptySessions.get(sessionId);
 
+  // If a worker target is specified and exists, route execution to PC2!
+  if (targetWorker && workers.has(targetWorker) && (!session || session.isWorker)) {
+    const worker = workers.get(targetWorker);
+
+    if (!session) {
+      console.log(`[term] Routing session ${sessionId} to worker ${targetWorker} (${worker.hostname})`);
+      session = {
+        isWorker: true,
+        workerId: targetWorker,
+        log: [],
+        ws: null
+      };
+      ptySessions.set(sessionId, session);
+
+      // Tell worker to spawn local PTY on PC2
+      if (worker.ws.readyState === WebSocket.OPEN) {
+        worker.ws.send(JSON.stringify({
+          type: "spawn",
+          sessionId,
+          cwd,
+          cols: 100,
+          rows: 30
+        }));
+      }
+    }
+
+    session.ws = ws;
+    if (session.log.length > 0) ws.send(session.log.join(""));
+
+    ws.on("message", (msg) => {
+      try {
+        const d = JSON.parse(msg);
+        if (worker.ws.readyState === WebSocket.OPEN) {
+          worker.ws.send(JSON.stringify({ sessionId, ...d }));
+        }
+        if (d.type === "close") {
+          ptySessions.delete(sessionId);
+        }
+      } catch {
+        if (worker.ws.readyState === WebSocket.OPEN) {
+          worker.ws.send(JSON.stringify({ type: "input", sessionId, data: msg }));
+        }
+      }
+    });
+
+    ws.on("close", () => {
+      if (session.ws === ws) session.ws = null;
+    });
+
+    return;
+  }
+
+  // Otherwise: Run locally on PC1 (default behavior)
   if (!session) {
-    // Pick a shell — check candidates in order
     const shellCandidates = [
       process.env.SHELL,
       "/bin/zsh",
@@ -355,7 +475,7 @@ wss.on("connection", (ws, req) => {
       try { return fs.existsSync(s) && fs.statSync(s).isFile(); } catch { return false; }
     }) || "/bin/sh";
 
-    console.log(`[term] new session ${sessionId} shell=${shell} cwd=${cwd}`);
+    console.log(`[term] new local session ${sessionId} shell=${shell} cwd=${cwd}`);
 
     let ptyProcess;
     try {
@@ -376,8 +496,9 @@ wss.on("connection", (ws, req) => {
     }
 
     session = {
+      isWorker: false,
       pty: ptyProcess,
-      log: [], // Store recent output to replay on refresh
+      log: [],
       ws: null,
       lastHasChildren: null,
       interval: null
@@ -385,10 +506,8 @@ wss.on("connection", (ws, req) => {
     ptySessions.set(sessionId, session);
 
     ptyProcess.onData(data => {
-      // Keep only last ~200 chunks to prevent memory bloat, but enough to restore screen
       session.log.push(data);
       if (session.log.length > 200) session.log.shift();
-      
       if (session.ws && session.ws.readyState === WebSocket.OPEN) {
         session.ws.send(data);
       }
@@ -420,18 +539,15 @@ wss.on("connection", (ws, req) => {
       if (session.ws && session.ws.readyState === WebSocket.OPEN) session.ws.close();
     });
   } else {
-    console.log(`[term] reconnected session ${sessionId}`);
+    console.log(`[term] reconnected local session ${sessionId}`);
   }
 
-  // Bind the current websocket to the session
   session.ws = ws;
 
-  // Replay history to restore screen
   if (session.log.length > 0) {
     ws.send(session.log.join(''));
   }
-  
-  // Send current process status
+
   if (session.lastHasChildren !== null) {
     ws.send(`GROOVE_CTRL_MSG:{"type":"processStatus","hasChildren":${session.lastHasChildren}}`);
   }
@@ -452,7 +568,6 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
-    // Only detach the ws, don't kill the PTY so it survives refresh
     if (session.ws === ws) {
       session.ws = null;
     }

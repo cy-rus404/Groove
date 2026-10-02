@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groove Companion</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- ── Left Sidebar ────────────────────────────── -->
+    <aside class="sidebar">
+      <!-- App Branding -->
+      <div class="brand-header">
+        <div class="brand-logo-wrap">
+          <img src="assets/icon-192.png" class="brand-logo" alt="Groove Logo" />
+        </div>
+        <div class="brand-info">
+          <span class="brand-title">Groove</span>
+          <span class="brand-tag">Companion</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-menu">
+        <button class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="nav-item" data-view="networks" onclick="switchView('networks')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span>Networks & QR</span>
+        </button>
+
+        <button class="nav-item" data-view="worker" onclick="switchView('worker')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+          </svg>
+          <span>Worker Mode</span>
+        </button>
+
+        <button class="nav-item" data-view="settings" onclick="switchView('settings')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer Status Card -->
+      <div class="sidebar-footer">
+        <div class="mini-status-card" id="sidebarHostCard">
+          <div class="mini-status-header">
+            <span class="mini-status-title">Host Server</span>
+            <span class="host-status-badge" id="sidebarHostBadge">Active :9000</span>
+          </div>
+          <span class="mini-status-desc" id="footerStatusDesc">Ready for connections</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Right Main Area ─────────────────────────── -->
+    <main class="main-content">
+
+      <!-- Custom Window Titlebar (Drag Region) -->
+      <header class="titlebar">
+        <div class="view-header-info">
+          <h1 class="view-title" id="viewHeaderTitle">Dashboard</h1>
+        </div>
+
+        <div class="window-controls">
+          <button class="win-btn win-min" id="winMinBtn" title="Minimize to Tray" onclick="minimizeWindow()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="win-btn win-close" id="winCloseBtn" title="Close" onclick="closeAppWindow()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ── Views Container ────────────────────────── -->
+      <div class="view-container">
+
+        <!-- ════ VIEW: DASHBOARD ════ -->
+        <section class="view-panel" id="view-dashboard">
+          
+          <!-- Hero Server Live Card -->
+          <div class="hero-card" id="heroCard">
+            <div class="hero-top">
+              <div class="hero-title-group">
+                <h2 class="hero-headline" id="heroStatusText">Groove Server is Live</h2>
+                <span class="hero-sub" id="heroSubText">Listening on port 9000 across active network interfaces</span>
+              </div>
+            </div>
+
+            <div class="hero-url-box">
+              <span class="hero-url-sigil">➜</span>
+              <input type="text" class="hero-url-input" id="heroPrimaryUrl" readonly value="http://localhost:9000" />
+            </div>
+
+            <div class="hero-actions">
+              <button class="btn-hero-primary" id="dashboardOpenBtn" onclick="openPrimaryInBrowser()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span>Open in Browser</span>
+              </button>
+              <button class="btn-hero-ghost" id="dashboardCopyBtn" onclick="copyPrimaryUrl()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy URL</span>
+              </button>
+              <button class="btn-hero-danger" id="dashboardToggleBtn" onclick="toggleServerAction()">
+                <span>Stop Server</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Two Column Grid for Quick Access & QR -->
+          <div class="dashboard-grid">
+            <!-- Left: Quick Network Links -->
+            <div class="card grid-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+                  <span>Quick Access</span>
+                </div>
+                <button class="text-link-btn" onclick="switchView('networks')">View All →</button>
+              </div>
+              <div class="quick-urls-list" id="dashboardUrlsList">
+                <div class="loading-state">
+                  <span class="spinner"></span>
+                  <span>Detecting addresses...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Mini QR Box -->
+            <div class="card grid-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  <span>Mobile Pairing</span>
+                </div>
+                <button class="text-link-btn" onclick="switchView('networks')">Expand →</button>
+              </div>
+              <div class="mini-qr-wrapper single-qr-center">
+                <div class="mini-qr-box">
+                  <img id="dashboardQrImg" alt="QR Code" style="display:none;" />
+                  <div class="qr-placeholder" id="dashboardQrLoading">
+                    <span class="spinner"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ════ VIEW: NETWORKS & QR ════ -->
+        <section class="view-panel hidden" id="view-networks">
+          
+          <div class="section-intro">
+            <p class="section-desc">Access Groove from any device on your local Wi-Fi or secure Tailscale VPN network.</p>
+          </div>
+
+          <div class="networks-layout">
+            <!-- Network Cards List -->
+            <div class="card network-list-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <span>Available Network Interfaces</span>
+                </div>
+              </div>
+              <div class="full-urls-list" id="fullUrlsList">
+                <div class="loading-state">
+                  <span class="spinner"></span>
+                  <span>Scanning network adapters...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Full QR Pairing Card -->
+            <div class="card qr-full-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                  <span>Mobile Pairing QR</span>
+                </div>
+              </div>
+
+              <div class="qr-full-content">
+                <div class="qr-full-box">
+                  <img id="fullQrImg" alt="QR Code" style="display:none;" />
+                  <div class="qr-placeholder" id="fullQrLoading">
+                    <span class="spinner"></span>
+                  </div>
+                </div>
+
+                <div class="qr-full-controls">
+                  <label class="input-label" for="fullNetworkSelect">Target Network</label>
+                  <select id="fullNetworkSelect" class="form-select" onchange="onNetworkSelectChange(this.value)">
+                    <option>Detecting...</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ════ VIEW: WORKER MODE ════ -->
+        <section class="view-panel hidden" id="view-worker">
+          
+          <div class="worker-hero-card" id="workerHeroCard">
+            <div class="worker-hero-top">
+              <div class="worker-hero-icon" id="workerHeroIcon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="worker-hero-title" id="workerHeroStatus">Worker: Standby</h2>
+                <span class="worker-hero-sub" id="workerHostnameDisplay">Device: Local Client</span>
+              </div>
+            </div>
+
+            <div class="worker-hero-desc">
+              Run terminal processes locally on <strong>this machine</strong> while browsing project files served from PC1. When you run <code>electron .</code> or <code>npm run dev</code>, apps open directly on this screen.
+            </div>
+          </div>
+
+          <div class="card worker-connect-card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span>Connect to Groove Host</span>
+              </div>
+            </div>
+
+            <div class="worker-input-row">
+              <div class="input-field-group">
+                <label class="input-label" for="workerHostInput">Groove Host URL (PC1)</label>
+                <div class="input-with-icon">
+                  <span class="input-prefix">➜</span>
+                  <input type="url" id="workerHostInput" class="form-input" placeholder="http://100.x.x.x:9000" />
+                </div>
+                <span class="input-hint">Enter the Tailscale or LAN IP address displayed on PC1's Groove Companion.</span>
+              </div>
+
+              <div class="worker-btn-row">
+                <button class="btn-primary" id="btnConnectWorker" onclick="doConnectWorker()">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  <span>Connect to Host</span>
+                </button>
+                <button class="btn-danger hidden" id="btnDisconnectWorker" onclick="doDisconnectWorker()">
+                  <span>Disconnect</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ════ VIEW: SETTINGS ════ -->
+        <section class="view-panel hidden" id="view-settings">
+          
+          <div class="settings-sections-wrap">
+            <!-- Server Settings -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                  <span>Host Server Configuration</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-text">
+                  <span class="setting-name">HTTP Port</span>
+                  <span class="setting-desc">Port used to serve Groove files and terminal sessions.</span>
+                </div>
+                <div class="port-form">
+                  <input type="number" id="settingPortInput" class="port-input" value="9000" min="1024" max="65535" />
+                  <button class="btn-ghost" id="savePortBtn" onclick="savePortSetting()">Save & Restart</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Application Behavior -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93A10 10 0 0 1 19.07 19.07"/></svg>
+                  <span>Application Behavior</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-text">
+                  <span class="setting-name">Run in background when closed</span>
+                  <span class="setting-desc">Minimizes to the system tray or top bar when you close the window.</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settingRunInBgToggle" checked onchange="toggleRunInBg(this.checked)" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="setting-divider"></div>
+
+              <div class="setting-row">
+                <div class="setting-text">
+                  <span class="setting-name">Auto-start on boot</span>
+                  <span class="setting-desc">Automatically starts the companion in the background on system login.</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settingAutostartToggle" onchange="toggleAutostart(this.checked)" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- System Tray Info Banner -->
+            <div class="card tray-info-banner">
+              <div class="card-title" style="color:var(--blue);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>Where does Groove live when minimized?</span>
+              </div>
+              <p class="tray-info-text">
+                • <strong>Linux</strong>: Top bar / system notification area.<br/>
+                • <strong>macOS</strong>: Top right Menu Bar.<br/>
+                • <strong>Windows</strong>: Bottom right System Tray near the clock.
+              </p>
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
