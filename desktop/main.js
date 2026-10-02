@@ -203,14 +203,15 @@ function updateTrayMenu() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 590,
+    width: 440,
+    height: 610,
     show: false,
     frame: false,
     resizable: false,
     maximizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
+    skipTaskbar: false,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     backgroundColor: '#0d1117',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -220,12 +221,6 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
-  mainWindow.on('blur', () => {
-    if (!mainWindow.webContents.isDevToolsOpened()) {
-      mainWindow.hide();
-    }
-  });
 
   mainWindow.on('close', (e) => {
     if (!app.isQuitting) {
