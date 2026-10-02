@@ -434,17 +434,33 @@ wssWorker.on("connection", (ws, req) => {
         if (pending) { worker.pendingSyncResolve = null; pending(msg); }
         return;
       }
+      if (msg.type === 'spawn-ok') {
+        console.log(`[Worker] spawn-ok for session ${msg.sessionId}`);
+        return;
+      }
+      if (msg.type === 'spawn-error') {
+        console.error(`[Worker] spawn-error for session ${msg.sessionId}: ${msg.error}`);
+        const session = ptySessions.get(msg.sessionId);
+        if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
+          session.ws.send(`\r\n\x1b[31m[Worker spawn failed: ${msg.error}]\x1b[0m\r\n`);
+        }
+        return;
+      }
       if (msg.sessionId) {
         const session = ptySessions.get(msg.sessionId);
-        if (session && session.isWorker && session.ws && session.ws.readyState === WebSocket.OPEN) {
+        if (session && session.isWorker) {
           if (msg.type === "output" && msg.data) {
             session.log.push(msg.data);
             if (session.log.length > 200) session.log.shift();
-            session.ws.send(msg.data);
+            if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+              session.ws.send(msg.data);
+            }
           } else if (msg.type === "exit") {
-            session.ws.close();
+            if (session.ws && session.ws.readyState === WebSocket.OPEN) session.ws.close();
             ptySessions.delete(msg.sessionId);
           }
+        } else {
+          console.log(`[Worker] msg for unknown/non-worker session ${msg.sessionId} type=${msg.type}`);
         }
       }
     } catch (e) {
@@ -464,7 +480,8 @@ wssTerminal.on("connection", (ws, req) => {
   const repoPath = params.get("repoPath") || os.homedir();
   const cwd = fs.existsSync(repoPath) ? repoPath : os.homedir();
   const sessionId = params.get("sessionId");
-  const targetWorker = params.get("workerId"); // If specified, route terminal to PC2
+  const targetWorker = params.get("workerId");
+  const workerCwd = params.get("workerCwd"); // explicit cwd for worker PTY spawn
 
   if (!sessionId) {
     ws.close();
@@ -486,20 +503,24 @@ wssTerminal.on("connection", (ws, req) => {
         ws: null
       };
       ptySessions.set(sessionId, session);
+      console.log(`[term] session stored, sending spawn to worker`);
 
-      // Send worker's own homedir as cwd — the host path doesn't exist on the worker
+      // Tell worker to spawn PTY in the synced project dir
       if (worker.ws.readyState === WebSocket.OPEN) {
         worker.ws.send(JSON.stringify({
           type: "spawn",
           sessionId,
-          cwd: null, // worker will use its own homedir
+          cwd: workerCwd || null,
           cols: 100,
           rows: 30
         }));
+      } else {
+        console.error(`[term] worker ws not open! state=${worker.ws.readyState}`);
       }
     }
 
     session.ws = ws;
+    console.log(`[term] session.ws set, log has ${session.log.length} buffered chunks`);
     if (session.log.length > 0) ws.send(session.log.join(""));
 
     ws.on("message", (msg) => {

@@ -1926,6 +1926,7 @@ function addTerm(existingSessionId = null, forceWorkerId = null, startCwd = null
     const targetWorker = forceWorkerId || ($('termWorkerSelect') ? $('termWorkerSelect').value : '');
     let url = `${proto}://${location.host}/terminal?repoPath=${encodeURIComponent(REPO || '')}&sessionId=${sessionId}`;
     if (targetWorker) url += `&workerId=${encodeURIComponent(targetWorker)}`;
+    if (startCwd) url += `&workerCwd=${encodeURIComponent(startCwd)}`;
     const ws = new WebSocket(url);
     session.socket = ws;
     
@@ -1936,12 +1937,6 @@ function addTerm(existingSessionId = null, forceWorkerId = null, startCwd = null
         t.write(`\r\n\x1b[32m# groove terminal${targetLabel}\x1b[0m\r\n`);
       } else {
         t.write(`\r\n\x1b[34m# groove terminal (restored)${targetLabel}\x1b[0m\r\n`);
-      }
-      // If we have a synced project dir, cd into it automatically
-      if (startCwd && targetWorker) {
-        setTimeout(() => {
-          ws.send(JSON.stringify({ type: 'input', data: `cd ${JSON.stringify(startCwd)} && clear\n` }));
-        }, 300);
       }
       session.ready = true;
       updateTermUI();

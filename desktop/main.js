@@ -228,6 +228,8 @@ function connectWorker(hostUrl) {
     updateTrayMenu();
   });
 
+  workerWs.on('ping', () => { if (workerWs) workerWs.pong(); });
+
   workerWs.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw);
